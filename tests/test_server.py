@@ -469,6 +469,8 @@ def test_build_dimension_merge_xml_emits_values_only_for_enum():
 
 
 def test_build_article_merge_xml_serializes_foreign_codes():
+    # Per XSD (.temp/api-html-mirror/1_14/article/article_merge_request.xml)
+    # FOREIGN_CODE only defines <CONTRACTOR_SHORT_NAME> and <CODE>.
     articles = [
         ArticleInput(
             name="Pen",
@@ -478,7 +480,7 @@ def test_build_article_merge_xml_serializes_foreign_codes():
             for_documents=True,
             foreign_codes=[
                 ForeignCodeInput(contractor_short_name="DOST_A", code="X-1"),
-                ForeignCodeInput(contractor_program_id="ERP-42", code="X-2"),
+                ForeignCodeInput(contractor_short_name="DOST_B", code="X-2"),
             ],
         )
     ]
@@ -487,7 +489,9 @@ def test_build_article_merge_xml_serializes_foreign_codes():
     article = root.find("ARTICLES/ARTICLE")
     codes = article.findall("FOREIGN_CODES/FOREIGN_CODE")
     assert codes[0].find("CONTRACTOR_SHORT_NAME").text == "DOST_A"
-    assert codes[1].find("CONTRACTOR_PROGRAM_ID").text == "ERP-42"
+    assert codes[0].find("CODE").text == "X-1"
+    assert codes[1].find("CONTRACTOR_SHORT_NAME").text == "DOST_B"
+    assert codes[1].find("CODE").text == "X-2"
 
 
 def test_build_fee_merge_xml_wraps_fees_in_folder():

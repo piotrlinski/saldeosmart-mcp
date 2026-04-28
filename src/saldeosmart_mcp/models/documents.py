@@ -8,6 +8,7 @@ all live here. Sales invoices are a separate file (``invoices.py``); some
 
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 from typing import Literal
 from xml.etree import ElementTree as ET
 
@@ -17,6 +18,30 @@ from ..http.xml import el_bool, el_int, el_text
 from .contractors import Contractor
 
 DocumentPolicy = Literal["LAST_10_DAYS", "LAST_10_DAYS_OCRED", "SALDEO"]
+
+
+def _sum_vat_registries(el: ET.Element, leaf: str) -> str | None:
+    """Sum a leaf (NETTO/VAT) across every <VAT_REGISTRY> under <VAT_REGISTRIES>.
+
+    SaldeoSMART breaks invoice/document amounts down per VAT rate rather than
+    exposing a single document-level total — so to recover ``value_net`` and
+    ``value_vat`` we walk the registries and add them up.
+    """
+    container = el.find("VAT_REGISTRIES")
+    if container is None:
+        return None
+    total = Decimal("0")
+    found = False
+    for reg in container.findall("VAT_REGISTRY"):
+        raw = el_text(reg, leaf)
+        if not raw:
+            continue
+        try:
+            total += Decimal(raw)
+        except (InvalidOperation, ValueError):
+            continue
+        found = True
+    return format(total, "f") if found else None
 
 
 class DocumentItem(BaseModel):
@@ -31,12 +56,12 @@ class DocumentItem(BaseModel):
     @classmethod
     def from_xml(cls, el: ET.Element) -> DocumentItem:
         return cls(
-            name=el_text(el, "NAME"),
-            quantity=el_text(el, "QUANTITY"),
-            unit_price_net=el_text(el, "UNIT_PRICE_NET"),
-            value_net=el_text(el, "VALUE_NET"),
-            value_gross=el_text(el, "VALUE_GROSS"),
-            vat_rate=el_text(el, "VAT_RATE"),
+            name=el_text(el, "NAME") or el_text(el, "DESCRIPTION"),
+            quantity=el_text(el, "AMOUNT"),
+            unit_price_net=el_text(el, "UNIT_VALUE"),
+            value_net=el_text(el, "NETTO"),
+            value_gross=el_text(el, "GROSS"),
+            vat_rate=el_text(el, "RATE"),
             category=el_text(el, "CATEGORY"),
         )
 
@@ -64,26 +89,30 @@ class Document(BaseModel):
     def from_xml(cls, el: ET.Element) -> Document:
         contractor_el = el.find("CONTRACTOR")
         items_el = el.find("DOCUMENT_ITEMS")
+        item_tag = "DOCUMENT_ITEM"
+        if items_el is None:
+            items_el = el.find("ITEMS")
+            item_tag = "ITEM"
         items = (
-            [DocumentItem.from_xml(i) for i in items_el.findall("DOCUMENT_ITEM")]
+            [DocumentItem.from_xml(i) for i in items_el.findall(item_tag)]
             if items_el is not None
             else []
         )
         return cls(
-            document_id=el_int(el, "DOCUMENT_ID"),
+            document_id=el_int(el, "DOCUMENT_ID") or el_int(el, "INVOICE_ID"),
             guid=el_text(el, "GUID"),
             number=el_text(el, "NUMBER"),
             type=el_text(el, "TYPE"),
             issue_date=el_text(el, "ISSUE_DATE"),
             sale_date=el_text(el, "SALE_DATE"),
-            payment_due_date=el_text(el, "PAYMENT_DUE_DATE"),
-            value_net=el_text(el, "VALUE_NET"),
-            value_gross=el_text(el, "VALUE_GROSS"),
-            value_vat=el_text(el, "VALUE_VAT"),
-            currency=el_text(el, "CURRENCY"),
+            payment_due_date=el_text(el, "PAYMENT_DATE") or el_text(el, "PAYMENT_DUE_DATE"),
+            value_net=_sum_vat_registries(el, "NETTO"),
+            value_gross=el_text(el, "SUM"),
+            value_vat=_sum_vat_registries(el, "VAT"),
+            currency=el_text(el, "CURRENCY_ISO4217") or el_text(el, "CURRENCY"),
             is_paid=el_bool(el, "IS_DOCUMENT_PAID"),
             is_mpp=el_bool(el, "IS_MPP"),
-            source_url=el_text(el, "SOURCE_URL"),
+            source_url=el_text(el, "SOURCE_URL") or el_text(el, "SOURCE"),
             preview_url=el_text(el, "PREVIEW_URL"),
             contractor=Contractor.from_xml(contractor_el) if contractor_el is not None else None,
             items=items,

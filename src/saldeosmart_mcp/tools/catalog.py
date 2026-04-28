@@ -179,8 +179,9 @@ def _build_article_merge_xml(articles: list[ArticleInput]) -> str:
             codes = ET.SubElement(item, "FOREIGN_CODES")
             for fc in a.foreign_codes:
                 fc_el = ET.SubElement(codes, "FOREIGN_CODE")
+                # Spec (.temp/api-html-mirror/1_14/article/article_merge_request.xml)
+                # only defines CONTRACTOR_SHORT_NAME and CODE inside FOREIGN_CODE.
                 set_text(fc_el, "CONTRACTOR_SHORT_NAME", fc.contractor_short_name)
-                set_text(fc_el, "CONTRACTOR_PROGRAM_ID", fc.contractor_program_id)
                 set_text(fc_el, "CODE", fc.code)
     return ET.tostring(root, encoding="unicode")
 

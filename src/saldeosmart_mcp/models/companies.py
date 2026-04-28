@@ -22,16 +22,20 @@ class Company(BaseModel):
 
     @classmethod
     def from_xml(cls, el: ET.Element) -> Company:
+        # SaldeoSMART's company.list returns <FULL_NAME>/<SHORT_NAME>,
+        # <STREET>, and <POSTCODE> — not the <NAME>/<ADDRESS>/<POSTAL_CODE>
+        # this parser used to read. Fallbacks accept either spelling so the
+        # model still works if Saldeo ever ships the alternates.
         return cls(
             company_id=el_int(el, "COMPANY_ID"),
             program_id=el_text(el, "COMPANY_PROGRAM_ID"),
-            name=el_text(el, "NAME"),
+            name=el_text(el, "FULL_NAME") or el_text(el, "NAME"),
             short_name=el_text(el, "SHORT_NAME"),
             vat_number=el_text(el, "VAT_NUMBER"),
             regon=el_text(el, "REGON"),
-            address=el_text(el, "ADDRESS"),
+            address=el_text(el, "STREET") or el_text(el, "ADDRESS"),
             city=el_text(el, "CITY"),
-            postal_code=el_text(el, "POSTAL_CODE"),
+            postal_code=el_text(el, "POSTCODE") or el_text(el, "POSTAL_CODE"),
         )
 
 
