@@ -14,15 +14,11 @@ from xml.etree import ElementTree as ET
 import httpx
 import pytest
 
-from saldeosmart_mcp.client import (
-    SaldeoClient,
-    SaldeoConfig,
-    SaldeoError,
-    _build_signature,
-    _encode_command,
-    _saldeo_url_encode,
-    iter_item_errors,
-)
+from saldeosmart_mcp.config import SaldeoConfig
+from saldeosmart_mcp.errors import SaldeoError, iter_item_errors
+from saldeosmart_mcp.http import SaldeoClient, el_bool
+from saldeosmart_mcp.http.signing import _build_signature, _encode_command, _saldeo_url_encode
+from saldeosmart_mcp.http.xml import _redact_url
 
 
 def test_url_encoding_uses_plus_for_space():
@@ -228,25 +224,31 @@ def test_top_level_error_is_logged_at_warning(caplog):
         "<ERROR_CODE>4302</ERROR_CODE>"
         "<ERROR_MESSAGE>User is locked</ERROR_MESSAGE></RESPONSE>"
     )
-    with caplog.at_level("WARNING", logger="saldeosmart_mcp.client"):
-        with pytest.raises(SaldeoError):
-            _client()._parse_response(_resp(xml))
+    with (
+        caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
+        pytest.raises(SaldeoError),
+    ):
+        _client()._parse_response(_resp(xml))
 
     msgs = [r.getMessage() for r in caplog.records]
     assert any("code=4302" in m and "User is locked" in m for m in msgs)
 
 
 def test_http_error_is_logged_at_warning(caplog):
-    with caplog.at_level("WARNING", logger="saldeosmart_mcp.client"):
-        with pytest.raises(SaldeoError):
-            _client()._parse_response(_resp("<html>oops</html>", status=502))
+    with (
+        caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
+        pytest.raises(SaldeoError),
+    ):
+        _client()._parse_response(_resp("<html>oops</html>", status=502))
     assert any("status=502" in r.getMessage() for r in caplog.records)
 
 
 def test_parse_error_is_logged_at_warning(caplog):
-    with caplog.at_level("WARNING", logger="saldeosmart_mcp.client"):
-        with pytest.raises(SaldeoError):
-            _client()._parse_response(_resp("not xml", status=200))
+    with (
+        caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
+        pytest.raises(SaldeoError),
+    ):
+        _client()._parse_response(_resp("not xml", status=200))
     assert any("parse error" in r.getMessage().lower() for r in caplog.records)
 
 
@@ -256,9 +258,100 @@ def test_successful_response_logs_operation_name(caplog):
         "<METAINF><OPERATION>company.list</OPERATION></METAINF>"
         "<STATUS>OK</STATUS><COMPANIES/></RESPONSE>"
     )
-    with caplog.at_level("INFO", logger="saldeosmart_mcp.client"):
+    with caplog.at_level("INFO", logger="saldeosmart_mcp.http.client"):
         _client()._parse_response(_resp(xml))
     assert any("operation=company.list" in r.getMessage() for r in caplog.records)
+
+
+def test_redact_url_strips_signature():
+    """req_sig must never appear in log lines — it's noise that breaks grep."""
+    url = "https://saldeo.brainshare.pl/api/xml/1.0/company/list?username=u&req_id=42&req_sig=abc123def456"
+    redacted = _redact_url(url)
+    assert "abc123def456" not in redacted
+    assert "req_sig=***" in redacted
+    # Non-sensitive params still present.
+    assert "username=u" in redacted
+    assert "req_id=42" in redacted
+
+
+def test_redact_url_handles_api_token_defensively():
+    """api_token should never be in a URL, but redact if it shows up."""
+    url = "http://x?api_token=SECRET&foo=bar"
+    redacted = _redact_url(url)
+    assert "SECRET" not in redacted
+    assert "foo=bar" in redacted
+
+
+def test_secret_str_protects_token_from_repr():
+    """SaldeoConfig must not surface the api_token in repr/str."""
+    config = SaldeoConfig(username="u", api_token="my-real-token")
+    assert "my-real-token" not in repr(config)
+    assert "my-real-token" not in str(config)
+    # But the value is still recoverable.
+    assert config.api_token.get_secret_value() == "my-real-token"
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("true", True),
+        ("True", True),
+        ("TRUE", True),
+        ("1", True),
+        ("yes", True),
+        ("y", True),
+        ("t", True),
+        ("false", False),
+        ("0", False),
+        ("no", False),
+        ("", False),
+        ("anything-else", False),
+    ],
+)
+def test_el_bool_parses_common_truthy_tokens(raw, expected):
+    el = ET.fromstring(f"<X><FLAG>{raw}</FLAG></X>")
+    assert el_bool(el, "FLAG") is expected
+
+
+def test_el_bool_returns_default_for_missing_tag():
+    el = ET.fromstring("<X/>")
+    assert el_bool(el, "MISSING") is False
+    assert el_bool(el, "MISSING", default=True) is True
+
+
+def test_request_lock_serializes_concurrent_calls():
+    """Spec: no concurrent requests. The internal lock must serialize them."""
+    import threading
+    import time as _time
+
+    client = _client()
+    in_flight = 0
+    max_in_flight = 0
+    lock = threading.Lock()
+
+    def fake_get(*_args, **_kwargs):
+        nonlocal in_flight, max_in_flight
+        with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        _time.sleep(0.02)
+        with lock:
+            in_flight -= 1
+        return httpx.Response(
+            status_code=200,
+            text="<RESPONSE><STATUS>OK</STATUS></RESPONSE>",
+            request=httpx.Request("GET", "http://x"),
+        )
+
+    client._http.get = fake_get  # type: ignore[method-assign]
+
+    threads = [threading.Thread(target=lambda: client.get("/p")) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert max_in_flight == 1, f"expected serial, saw {max_in_flight} concurrent"
 
 
 def test_iter_item_errors_empty_on_all_success():

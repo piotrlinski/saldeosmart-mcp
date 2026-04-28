@@ -1,0 +1,15 @@
+.git
+.gitignore
+.idea
+.venv
+.pytest_cache
+.ruff_cache
+.temp
+.DS_Store
+**/__pycache__
+*.pyc
+*.pyo
+tests/
+docker/
+sandbox.py
+.claude

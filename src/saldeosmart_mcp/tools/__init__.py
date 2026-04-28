@@ -1,0 +1,110 @@
+"""MCP tool registry — one submodule per Saldeo resource family.
+
+**Importing this package has a side effect**: every tool submodule is
+imported eagerly, which is what registers the ``@mcp.tool`` decorators
+against the shared FastMCP instance. ``server.main()`` does
+``import saldeosmart_mcp.tools`` exactly once before calling ``mcp.run()``;
+that's enough to make every tool visible to MCP clients.
+
+Tool functions are also re-exported here so callers can do
+``from saldeosmart_mcp.tools import list_documents`` without having to
+remember which file each tool lives in. The mcp instance and helpers
+live in ``_runtime``.
+"""
+
+from __future__ import annotations
+
+# Import every submodule so its tools register against `mcp`. The order doesn't
+# matter for registration but follows resource-family alphabetical order.
+from . import bank, catalog, companies, contractors, dimensions, documents, invoices, personnel
+
+# Import the runtime first so submodules find a fully-initialized mcp instance.
+from ._runtime import (
+    error_payload,
+    error_response,
+    get_client,
+    mcp,
+    parse_collection,
+    reset_client_for_tests,
+    saldeo_call,
+    summarize_merge,
+)
+from .bank import list_bank_statements
+from .catalog import (
+    merge_articles,
+    merge_categories,
+    merge_descriptions,
+    merge_fees,
+    merge_payment_methods,
+    merge_registers,
+)
+from .companies import list_companies
+from .contractors import list_contractors, merge_contractors
+from .dimensions import merge_dimensions
+from .documents import (
+    delete_documents,
+    get_document_id_list,
+    get_documents_by_id,
+    list_documents,
+    list_recognized_documents,
+    merge_document_dimensions,
+    recognize_documents,
+    search_documents,
+    sync_documents,
+    update_documents,
+)
+from .invoices import (
+    get_invoice_id_list,
+    get_invoices_by_id,
+    list_invoices,
+)
+from .personnel import list_employees, list_personnel_documents
+
+__all__ = [
+    # Reads
+    "list_bank_statements",
+    "list_companies",
+    "list_contractors",
+    "list_documents",
+    "list_employees",
+    "list_invoices",
+    "list_personnel_documents",
+    "list_recognized_documents",
+    "search_documents",
+    "get_document_id_list",
+    "get_documents_by_id",
+    "get_invoice_id_list",
+    "get_invoices_by_id",
+    # Writes
+    "delete_documents",
+    "merge_articles",
+    "merge_categories",
+    "merge_contractors",
+    "merge_descriptions",
+    "merge_dimensions",
+    "merge_document_dimensions",
+    "merge_fees",
+    "merge_payment_methods",
+    "merge_registers",
+    "recognize_documents",
+    "sync_documents",
+    "update_documents",
+    # Runtime helpers
+    "error_payload",
+    "error_response",
+    "get_client",
+    "mcp",
+    "parse_collection",
+    "reset_client_for_tests",
+    "saldeo_call",
+    "summarize_merge",
+    # Submodule references (so static analyzers see them as used)
+    "bank",
+    "catalog",
+    "companies",
+    "contractors",
+    "dimensions",
+    "documents",
+    "invoices",
+    "personnel",
+]
