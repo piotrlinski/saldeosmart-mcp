@@ -15,21 +15,61 @@ Read-only MCP server dla [SaldeoSMART](https://www.saldeosmart.pl/) — pozwala 
 
 ## Wymagania
 
-- [`uv`](https://docs.astral.sh/uv/) (uv sam ogarnie Pythona ≥ 3.10 z `pyproject.toml`)
-- Konto SaldeoSMART z dostępem API (token generujesz w **Ustawienia konta → API**)
-- Claude Desktop
+Do uruchomienia serwera (production):
+
+- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** ≥ 24 — obraz buduje się z `docker/Dockerfile`. Demon dockerowy musi działać.
+- **GNU Make** — do uruchamiania `make build`/`make run`. Na macOS/Linux jest standardowo; Windows: WSL albo `make` z chocolatey.
+- **Konto SaldeoSMART z dostępem API** — token generujesz w **Ustawienia konta → API**.
+- **Claude Desktop** (jeśli chcesz spiąć z Claude'em).
+
+Dodatkowo do pracy nad kodem (tylko deweloperzy):
+
+- **[`uv`](https://docs.astral.sh/uv/)** — odpala testy/lint w lokalnym `.venv`. Sam ogarnia Pythona ≥ 3.10 z `pyproject.toml`. Nie trzeba go mieć żeby zbudować obraz — uv siedzi w warstwie buildera Dockerfile'a.
+- **Node.js + npx** — opcjonalne, do MCP Inspectora (`make inspector`).
 
 > ⚠️ Aby dostać token API, w niektórych planach trzeba napisać do `api@saldeosmart.pl` i poprosić o aktywację.
 
-## Instalacja
+## Build obrazu
 
 ```bash
 git clone <ten-repo>
 cd saldeosmart-mcp
-uv sync
+make build          # = docker build -f docker/Dockerfile -t saldeosmart-mcp:latest .
 ```
 
-`uv sync` utworzy `.venv/` z zależnościami zgodnymi z `pyproject.toml`/`uv.lock`. Nie aktywuj go ręcznie — `uv run` zrobi to za Ciebie przy każdym uruchomieniu.
+### Struktura obrazu
+
+Dockerfile (`docker/Dockerfile`) jest dwustopniowy:
+
+1. **`builder`** — bazuje na `ghcr.io/astral-sh/uv:python3.12-bookworm-slim`. Tutaj `uv sync --frozen --no-dev` rozwiązuje i instaluje zależności z `uv.lock` w izolowanym `.venv`, a następnie kompiluje bytecode. Cache uv-a siedzi w mount cache'u BuildKitu, więc kolejne buildy są szybkie.
+2. **`runtime`** — bazuje na czystym `python:3.12-slim-bookworm`. Kopiuje gotowy `.venv` z buildera, zakłada nieuprzywilejowanego użytkownika `mcp` i ustawia `ENTRYPOINT ["saldeosmart-mcp"]`.
+
+Detale runtime'u:
+
+- `PATH="/app/.venv/bin:$PATH"` — `saldeosmart-mcp` (console-script z `pyproject.toml`) jest na PATH.
+- `PYTHONUNBUFFERED=1`, `PYTHONDONTWRITEBYTECODE=1` — żeby Python nie psuł stdio (transport MCP) i nie zaśmiecał obrazu plikami `.pyc`.
+- `SALDEO_LOG_DIR=/var/log/saldeosmart` + `VOLUME` na ten katalog — patrz [Logi](#logi).
+- `USER mcp` — kontener nie chodzi z roota.
+
+Gotowy obraz: Python 3.12-slim + `.venv` z `fastmcp`, `httpx`, `pydantic`, `pydantic-settings` + kod pakietu. Rozmiar: ~234 MB.
+
+Inne przydatne cele Makefile'a:
+
+```bash
+make help           # lista wszystkich celów
+make run            # uruchom serwer w kontenerze (wymaga SALDEO_USERNAME / SALDEO_API_TOKEN w env)
+make inspector      # MCP Inspector przeciwko obrazowi
+make test           # pytest lokalnie (potrzebuje uv)
+make lint           # ruff + mypy lokalnie (potrzebuje uv)
+make sync           # uv sync --extra dev — zainstaluj dev dependencies
+make clean          # docker image rm saldeosmart-mcp:latest
+```
+
+Tag obrazu / ścieżkę do Dockerfile'a możesz nadpisać:
+
+```bash
+IMAGE=saldeosmart-mcp:dev make build
+```
 
 ## Konfiguracja Claude Desktop
 
@@ -45,30 +85,24 @@ Dodaj wpis:
 {
   "mcpServers": {
     "saldeosmart": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/piotrlinski/saldeosmart-mcp", "saldeosmart-mcp"],
-      "env": {
-        "SALDEO_USERNAME": "twoj-login",
-        "SALDEO_API_TOKEN": "twoj-token-z-ustawien",
-        "SALDEO_BASE_URL": "https://saldeo.brainshare.pl"
-      }
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "SALDEO_USERNAME=twoj-login",
+        "-e", "SALDEO_API_TOKEN=twoj-token-z-ustawien",
+        "-e", "SALDEO_BASE_URL=https://saldeo.brainshare.pl",
+        "saldeosmart-mcp:latest"
+      ]
     }
   }
 }
 ```
 
-`uvx` ściąga, izoluje i odpala pakiet bez wskazywania lokalnej kopii — dzięki temu config jest niezależny od tego, gdzie ktoś sklonował repo. `saldeosmart-mcp` to console-script z `pyproject.toml`.
+Flagi `-i` i `--rm` są wymagane: MCP używa stdio, więc kontener musi mieć podpięte stdin (`-i`), a nie ma sensu zostawiać zatrzymanych kontenerów po sesji (`--rm`). Forma `-e KEY=value` ustawia zmienną w kontenerze niezależnie od shell-a hosta — credentials siedzą w `claude_desktop_config.json`, nie w `~/.zshrc`/`~/.bashrc`.
 
-> 💡 Pracujesz nad kodem lokalnie? Wtedy zamiast `uvx` podepnij się pod swój klon:
->
-> ```json
-> "command": "uv",
-> "args": ["--directory", "/absolutna/sciezka/do/saldeosmart-mcp", "run", "saldeosmart-mcp"]
-> ```
->
-> Zmiany w plikach widać od razu, bez `uvx --refresh`.
+> 🔒 Jeśli wolisz nie trzymać tokenu w configu Claude'a, zrób plik `~/saldeosmart.env` (`chmod 600`) z liniami `KEY=VALUE` i podmień `-e ...` na `"--env-file", "/Users/ty/saldeosmart.env"`. Plik łatwo trzymać poza repo i rotować bez ruszania configu Claude'a.
 
-Jeśli Claude Desktop zgłosi, że nie znajduje `uvx`/`uv`, podaj absolutną ścieżkę z `which uvx` zamiast samej nazwy.
+Jeśli Claude Desktop zgłosi, że nie znajduje `docker`, podaj absolutną ścieżkę z `which docker` zamiast samej nazwy.
 
 Dla testów użyj `https://saldeo-test.brainshare.pl` jako `SALDEO_BASE_URL`.
 
@@ -79,24 +113,37 @@ Restart Claude Desktop. Powinieneś zobaczyć ikonkę narzędzi 🔧 w polu czat
 ```bash
 export SALDEO_USERNAME=twoj-login
 export SALDEO_API_TOKEN=twoj-token
-uv run saldeosmart-mcp
+make run            # = docker run --rm -i -e SALDEO_USERNAME -e SALDEO_API_TOKEN ... saldeosmart-mcp:latest
 ```
 
-Serwer powinien wystartować i czekać na wiadomości MCP na stdin/stdout.
+Serwer wystartuje i będzie czekać na wiadomości MCP na stdin/stdout.
 
-Możesz też użyć [MCP Inspectora](https://github.com/modelcontextprotocol/inspector):
+Z [MCP Inspectorem](https://github.com/modelcontextprotocol/inspector):
 
 ```bash
-npx @modelcontextprotocol/inspector uv run saldeosmart-mcp
+make inspector
 ```
 
 ## Testy
 
 ```bash
-uv run pytest tests/
+make sync           # raz, żeby założyć .venv z dev deps
+make test           # pytest
+make lint           # ruff + mypy
 ```
 
 Pokrywają najbardziej zdradliwą część — algorytm podpisu MD5 i kodowanie XML→gzip→base64.
+
+## Logi
+
+W obrazie logi domyślnie lądują pod `/var/log/saldeosmart/saldeosmart.log` (rotacja dobowa, 7 dni). Żeby je trzymać poza kontenerem, podmontuj wolumen:
+
+```bash
+docker run --rm -i \
+    -e SALDEO_USERNAME=... -e SALDEO_API_TOKEN=... \
+    -v saldeosmart-logs:/var/log/saldeosmart \
+    saldeosmart-mcp:latest
+```
 
 ## Architektura
 

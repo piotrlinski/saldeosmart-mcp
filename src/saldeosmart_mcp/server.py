@@ -2,13 +2,14 @@
 SaldeoSMART MCP server — read-only access to documents, invoices, contractors.
 
 Exposes Claude-friendly tools that wrap the XML/MD5/gzip ugliness of the
-SaldeoSMART API behind clean Python signatures returning plain dicts.
+SaldeoSMART API behind clean Python signatures returning Pydantic models.
 
-Configuration via environment variables:
+Configuration via environment variables (loaded by :class:`SaldeoConfig`):
     SALDEO_USERNAME   — your SaldeoSMART login
     SALDEO_API_TOKEN  — API token from Settings → API
     SALDEO_BASE_URL   — optional, defaults to https://saldeo.brainshare.pl
                         (use https://saldeo-test.brainshare.pl for sandbox)
+    SALDEO_TIMEOUT    — optional request timeout in seconds (default 30)
 
 Run locally:
     python -m saldeosmart_mcp.server
@@ -18,314 +19,115 @@ Connect from Claude Desktop — see README.md for claude_desktop_config.json sni
 
 from __future__ import annotations
 
+import functools
 import logging
 import os
+from collections.abc import Callable
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 from xml.etree import ElementTree as ET
 
 from fastmcp import FastMCP
+from pydantic import ValidationError
 
-from .client import SaldeoClient, SaldeoConfig, SaldeoError, el_int, el_text
+from .client import SaldeoClient, SaldeoConfig, SaldeoError
+from .models import (
+    Company,
+    CompanyList,
+    Contractor,
+    ContractorList,
+    Document,
+    DocumentList,
+    DocumentPolicy,
+    ErrorResponse,
+    InvoiceList,
+    ItemErrorPayload,
+)
 
 logger = logging.getLogger(__name__)
 
 mcp = FastMCP("SaldeoSMART")
 
+_T = TypeVar("_T")
+
+
+# ---- Client lifecycle -----------------------------------------------------------
+
+_SHARED_CLIENT: SaldeoClient | None = None
+
 
 def _client() -> SaldeoClient:
-    """Build a client from env vars. Raises a clear error if creds are missing."""
-    username = os.environ.get("SALDEO_USERNAME")
-    token = os.environ.get("SALDEO_API_TOKEN")
-    if not username or not token:
-        raise RuntimeError(
-            "Missing SaldeoSMART credentials. Set SALDEO_USERNAME and "
-            "SALDEO_API_TOKEN environment variables (the token is generated "
-            "in SaldeoSMART under Settings → API)."
-        )
-    base_url = os.environ.get("SALDEO_BASE_URL") or "https://saldeo.brainshare.pl"
-    return SaldeoClient(SaldeoConfig(username=username, api_token=token,
-                                     base_url=base_url))
+    """Return the process-wide SaldeoClient, initialising it on first use.
 
-
-# ---- Parsers ---------------------------------------------------------------------
-
-def _parse_company(el: ET.Element) -> dict[str, Any]:
-    return {
-        "company_id": el_int(el, "COMPANY_ID"),
-        "program_id": el_text(el, "COMPANY_PROGRAM_ID"),
-        "name": el_text(el, "NAME"),
-        "short_name": el_text(el, "SHORT_NAME"),
-        "vat_number": el_text(el, "VAT_NUMBER"),
-        "regon": el_text(el, "REGON"),
-        "address": el_text(el, "ADDRESS"),
-        "city": el_text(el, "CITY"),
-        "postal_code": el_text(el, "POSTAL_CODE"),
-    }
-
-
-def _parse_contractor(el: ET.Element) -> dict[str, Any]:
-    return {
-        "contractor_id": el_int(el, "CONTRACTOR_ID"),
-        "program_id": el_text(el, "CONTRACTOR_PROGRAM_ID"),
-        "short_name": el_text(el, "SHORT_NAME"),
-        "full_name": el_text(el, "FULL_NAME"),
-        "vat_number": el_text(el, "VAT_NUMBER"),
-        "address": el_text(el, "ADDRESS"),
-        "city": el_text(el, "CITY"),
-        "postal_code": el_text(el, "POSTAL_CODE"),
-        "inactive": el_text(el, "INACTIVE") == "true",
-    }
-
-
-def _parse_document(el: ET.Element) -> dict[str, Any]:
-    """Parse a DOCUMENT element. Keeps it flat for easy LLM consumption."""
-    contractor_el = el.find("CONTRACTOR")
-    contractor = _parse_contractor(contractor_el) if contractor_el is not None else None
-
-    items: list[dict[str, Any]] = []
-    items_el = el.find("DOCUMENT_ITEMS")
-    if items_el is not None:
-        for item in items_el.findall("DOCUMENT_ITEM"):
-            items.append({
-                "name": el_text(item, "NAME"),
-                "quantity": el_text(item, "QUANTITY"),
-                "unit_price_net": el_text(item, "UNIT_PRICE_NET"),
-                "value_net": el_text(item, "VALUE_NET"),
-                "value_gross": el_text(item, "VALUE_GROSS"),
-                "vat_rate": el_text(item, "VAT_RATE"),
-                "category": el_text(item, "CATEGORY"),
-            })
-
-    return {
-        "document_id": el_int(el, "DOCUMENT_ID"),
-        "guid": el_text(el, "GUID"),
-        "number": el_text(el, "NUMBER"),
-        "type": el_text(el, "TYPE"),
-        "issue_date": el_text(el, "ISSUE_DATE"),
-        "sale_date": el_text(el, "SALE_DATE"),
-        "payment_due_date": el_text(el, "PAYMENT_DUE_DATE"),
-        "value_net": el_text(el, "VALUE_NET"),
-        "value_gross": el_text(el, "VALUE_GROSS"),
-        "value_vat": el_text(el, "VALUE_VAT"),
-        "currency": el_text(el, "CURRENCY"),
-        "is_paid": el_text(el, "IS_DOCUMENT_PAID") == "true",
-        "is_mpp": el_text(el, "IS_MPP") == "true",
-        "source_url": el_text(el, "SOURCE_URL"),
-        "preview_url": el_text(el, "PREVIEW_URL"),
-        "contractor": contractor,
-        "items": items,
-    }
-
-
-# ---- Tools -----------------------------------------------------------------------
-
-@mcp.tool
-def list_companies(company_program_id: str | None = None) -> dict[str, Any]:
+    A single client lets httpx pool connections across tool calls and matches
+    the spec's "no concurrent requests" rule.
     """
-    List companies (firms) available in SaldeoSMART.
-
-    Args:
-        company_program_id: Optional. Filter by external program ID
-            (e.g. an ERP-side identifier). If omitted, returns all companies.
-
-    Returns:
-        {"companies": [...]} where each entry has company_id, program_id,
-        name, short_name, vat_number, regon, address, city, postal_code.
-    """
-    query = {"company_program_id": company_program_id} if company_program_id else {}
-    with _client() as c:
+    global _SHARED_CLIENT
+    if _SHARED_CLIENT is None:
         try:
-            root = c.get("/api/xml/1.0/company/list", query=query)
-        except SaldeoError as e:
-            return _error_payload(e)
+            # BaseSettings loads username/api_token from SALDEO_* env vars.
+            config = SaldeoConfig()  # type: ignore[call-arg]
+        except ValidationError as e:
+            missing = ", ".join(f"SALDEO_{str(err['loc'][0]).upper()}" for err in e.errors())
+            raise RuntimeError(
+                f"Missing SaldeoSMART credentials ({missing}). The token is generated "
+                f"in SaldeoSMART under Settings → API."
+            ) from e
+        _SHARED_CLIENT = SaldeoClient(config)
+    return _SHARED_CLIENT
 
-    companies_el = root.find("COMPANIES")
-    companies = (
-        [_parse_company(el) for el in companies_el.findall("COMPANY")]
-        if companies_el is not None else []
-    )
-    return {"companies": companies, "count": len(companies)}
+
+def _reset_client_for_tests() -> None:
+    """Drop the cached client. Tests use this to swap configs between runs."""
+    global _SHARED_CLIENT
+    if _SHARED_CLIENT is not None:
+        _SHARED_CLIENT.close()
+        _SHARED_CLIENT = None
 
 
-@mcp.tool
-def list_contractors(company_program_id: str) -> dict[str, Any]:
+# ---- Tool plumbing --------------------------------------------------------------
+
+
+def _saldeo_call(fn: Callable[..., _T]) -> Callable[..., _T | ErrorResponse]:
+    """Decorator: turn a SaldeoError raised inside a tool into ErrorResponse.
+
+    Tool bodies stay focused on the happy path; the error envelope is uniform.
     """
-    List contractors (suppliers and customers) for a specific company.
 
-    Args:
-        company_program_id: External program ID of the company. Required.
-            Get one from list_companies first if you don't know it.
-
-    Returns:
-        {"contractors": [...]} with contractor_id, program_id, name,
-        vat_number, address, etc.
-    """
-    with _client() as c:
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
         try:
-            root = c.get("/api/xml/1.23/contractor/list",
-                         query={"company_program_id": company_program_id})
+            return fn(*args, **kwargs)
         except SaldeoError as e:
-            return _error_payload(e)
+            return _error_response(e)
 
-    contractors_el = root.find("CONTRACTORS")
-    contractors = (
-        [_parse_contractor(el) for el in contractors_el.findall("CONTRACTOR")]
-        if contractors_el is not None else []
-    )
-    return {"contractors": contractors, "count": len(contractors)}
+    return wrapper
 
 
-@mcp.tool
-def list_documents(
-    company_program_id: str,
-    policy: str = "LAST_10_DAYS",
-) -> dict[str, Any]:
-    """
-    List documents (invoices, receipts) for a company.
-
-    Args:
-        company_program_id: External program ID of the company.
-        policy: Which documents to return. One of:
-            - "LAST_10_DAYS" — all documents added in the last 10 days (default)
-            - "LAST_10_DAYS_OCRED" — only OCR-processed docs from last 10 days
-            - "SALDEO" — only documents marked for export from SaldeoSMART UI
-
-    Returns:
-        {"documents": [...]} with full document details including line items,
-        contractor info, amounts, dates, and links to PDF/JPG previews.
-    """
-    if policy not in ("LAST_10_DAYS", "LAST_10_DAYS_OCRED", "SALDEO"):
-        return {
-            "error": "INVALID_POLICY",
-            "message": f"policy must be LAST_10_DAYS, LAST_10_DAYS_OCRED, or SALDEO; got {policy!r}",
-        }
-
-    with _client() as c:
-        try:
-            # Use API version 2.12 — most recent stable with rich document fields
-            root = c.get("/api/xml/2.12/document/list",
-                         query={"company_program_id": company_program_id,
-                                "policy": policy})
-        except SaldeoError as e:
-            return _error_payload(e)
-
-    docs_el = root.find("DOCUMENTS")
-    documents = (
-        [_parse_document(el) for el in docs_el.findall("DOCUMENT")]
-        if docs_el is not None else []
-    )
-    return {"documents": documents, "count": len(documents)}
+def _parse_collection(
+    root: ET.Element,
+    container_tag: str,
+    item_tag: str,
+    parser: Callable[[ET.Element], _T],
+) -> list[_T]:
+    """Find <container_tag>/<item_tag>* and parse each child with `parser`."""
+    container = root.find(container_tag)
+    if container is None:
+        return []
+    return [parser(el) for el in container.findall(item_tag)]
 
 
-@mcp.tool
-def search_documents(
-    company_program_id: str,
-    document_id: int | None = None,
-    number: str | None = None,
-    nip: str | None = None,
-    guid: str | None = None,
-) -> dict[str, Any]:
-    """
-    Search for specific documents by ID, document number, contractor NIP, or GUID.
-
-    Pass at least one of document_id / number / nip / guid. Combining number+nip
-    narrows down a single invoice from a known supplier.
-
-    Args:
-        company_program_id: External program ID of the company.
-        document_id: Internal SaldeoSMART document ID.
-        number: Document number as printed on the invoice.
-        nip: Contractor's tax ID.
-        guid: Document GUID.
-
-    Returns:
-        {"documents": [...]} with full details for matched documents.
-    """
-    if not any((document_id, number, nip, guid)):
-        return {
-            "error": "MISSING_CRITERIA",
-            "message": "Provide at least one of document_id, number, nip, or guid.",
-        }
-
-    # Build BY_FIELDS search request XML per spec v1.8
-    fields_xml = ""
-    if document_id is not None:
-        fields_xml += f"<DOCUMENT_ID>{document_id}</DOCUMENT_ID>"
-    if number:
-        fields_xml += f"<NUMBER>{_xml_escape(number)}</NUMBER>"
-    if nip:
-        fields_xml += f"<NIP>{_xml_escape(nip)}</NIP>"
-    if guid:
-        fields_xml += f"<GUID>{_xml_escape(guid)}</GUID>"
-
-    xml = (
-        "<?xml version='1.0' encoding='UTF-8'?>"
-        "<ROOT>"
-        "<POLICY>BY_FIELDS</POLICY>"
-        f"<FIELDS>{fields_xml}</FIELDS>"
-        "</ROOT>"
+def _error_response(e: SaldeoError) -> ErrorResponse:
+    return ErrorResponse(
+        error=e.code,
+        message=e.message,
+        http_status=e.http_status,
+        details=[ItemErrorPayload.from_dataclass(d) for d in e.details],
     )
 
-    with _client() as c:
-        try:
-            root = c.post_command(
-                "/api/xml/1.8/document/search",
-                xml_command=xml,
-                query={"company_program_id": company_program_id},
-            )
-        except SaldeoError as e:
-            return _error_payload(e)
 
-    docs_el = root.find("DOCUMENTS")
-    documents = (
-        [_parse_document(el) for el in docs_el.findall("DOCUMENT")]
-        if docs_el is not None else []
-    )
-    return {"documents": documents, "count": len(documents)}
-
-
-@mcp.tool
-def list_invoices(company_program_id: str) -> dict[str, Any]:
-    """
-    List sales invoices issued in SaldeoSMART (only those marked for export).
-
-    This is for invoices CREATED in SaldeoSMART (the invoicing module),
-    not OCR-processed cost documents — for those use list_documents.
-
-    Args:
-        company_program_id: External program ID of the company.
-
-    Returns:
-        {"invoices": [...]} with invoice details including KSeF status if applicable.
-    """
-    with _client() as c:
-        try:
-            root = c.get("/api/xml/1.20/invoice/list",
-                         query={"company_program_id": company_program_id,
-                                "policy": "SALDEO"})
-        except SaldeoError as e:
-            return _error_payload(e)
-
-    invoices_el = root.find("INVOICES")
-    invoices: list[dict[str, Any]] = []
-    if invoices_el is not None:
-        for inv in invoices_el.findall("INVOICE"):
-            # Reuse document parser since structure is similar
-            invoices.append(_parse_document(inv))
-    return {"invoices": invoices, "count": len(invoices)}
-
-
-# ---- Helpers ---------------------------------------------------------------------
-
-def _xml_escape(s: str) -> str:
-    """Minimal XML-escape for text-only nodes."""
-    return (s.replace("&", "&amp;")
-             .replace("<", "&lt;")
-             .replace(">", "&gt;"))
-
-
+# Backwards-compat shim: legacy tests import `_error_payload` and expect a plain dict.
 def _error_payload(e: SaldeoError) -> dict[str, Any]:
     """Render SaldeoError as a JSON-friendly dict for the MCP boundary."""
     payload: dict[str, Any] = {"error": e.code, "message": e.message}
@@ -333,17 +135,159 @@ def _error_payload(e: SaldeoError) -> dict[str, Any]:
         payload["http_status"] = e.http_status
     if e.details:
         payload["details"] = [
-            {"status": d.status, "path": d.path, "message": d.message,
-             "item_id": d.item_id}
+            {"status": d.status, "path": d.path, "message": d.message, "item_id": d.item_id}
             for d in e.details
         ]
     return payload
 
 
-def _setup_logging() -> Path:
+# ---- Tools ---------------------------------------------------------------------
+
+
+@mcp.tool
+@_saldeo_call
+def list_companies(company_program_id: str | None = None) -> CompanyList | ErrorResponse:
+    """List companies (firms) available in SaldeoSMART.
+
+    Args:
+        company_program_id: Optional. Filter by external program ID
+            (e.g. an ERP-side identifier). If omitted, returns all companies.
+
+    Returns:
+        CompanyList with each entry's company_id, program_id, name, short_name,
+        vat_number, regon, address, city, postal_code. On Saldeo errors,
+        an ErrorResponse with code, message, and optional per-item details.
     """
-    Route every log record from this package (client + server) to a file under
-    `~/.saldeosmart/logs/` with daily rotation and one-week retention.
+    query = {"company_program_id": company_program_id} if company_program_id else {}
+    root = _client().get("/api/xml/1.0/company/list", query=query)
+    companies = _parse_collection(root, "COMPANIES", "COMPANY", Company.from_xml)
+    return CompanyList(companies=companies, count=len(companies))
+
+
+@mcp.tool
+@_saldeo_call
+def list_contractors(company_program_id: str) -> ContractorList | ErrorResponse:
+    """List contractors (suppliers and customers) for a specific company.
+
+    Args:
+        company_program_id: External program ID of the company. Required.
+            Get one from list_companies first if you don't know it.
+    """
+    root = _client().get(
+        "/api/xml/1.23/contractor/list",
+        query={"company_program_id": company_program_id},
+    )
+    contractors = _parse_collection(root, "CONTRACTORS", "CONTRACTOR", Contractor.from_xml)
+    return ContractorList(contractors=contractors, count=len(contractors))
+
+
+@mcp.tool
+@_saldeo_call
+def list_documents(
+    company_program_id: str,
+    policy: DocumentPolicy = "LAST_10_DAYS",
+) -> DocumentList | ErrorResponse:
+    """List documents (invoices, receipts) for a company.
+
+    Args:
+        company_program_id: External program ID of the company.
+        policy: Which documents to return:
+            - LAST_10_DAYS — all documents added in the last 10 days (default)
+            - LAST_10_DAYS_OCRED — only OCR-processed docs from last 10 days
+            - SALDEO — only documents marked for export from SaldeoSMART UI
+    """
+    # Use API version 2.12 — most recent stable with rich document fields.
+    root = _client().get(
+        "/api/xml/2.12/document/list",
+        query={"company_program_id": company_program_id, "policy": policy},
+    )
+    documents = _parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
+@mcp.tool
+@_saldeo_call
+def search_documents(
+    company_program_id: str,
+    document_id: int | None = None,
+    number: str | None = None,
+    nip: str | None = None,
+    guid: str | None = None,
+) -> DocumentList | ErrorResponse:
+    """Search for specific documents by ID, document number, contractor NIP, or GUID.
+
+    Pass at least one of document_id / number / nip / guid. Combining number+nip
+    narrows down a single invoice from a known supplier.
+    """
+    if not any((document_id, number, nip, guid)):
+        return ErrorResponse(
+            error="MISSING_CRITERIA",
+            message="Provide at least one of document_id, number, nip, or guid.",
+        )
+
+    xml = _build_search_xml(document_id=document_id, number=number, nip=nip, guid=guid)
+    root = _client().post_command(
+        "/api/xml/1.8/document/search",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    documents = _parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
+@mcp.tool
+@_saldeo_call
+def list_invoices(company_program_id: str) -> InvoiceList | ErrorResponse:
+    """List sales invoices issued in SaldeoSMART (only those marked for export).
+
+    This is for invoices CREATED in SaldeoSMART (the invoicing module),
+    not OCR-processed cost documents — for those use list_documents.
+    """
+    root = _client().get(
+        "/api/xml/1.20/invoice/list",
+        query={"company_program_id": company_program_id, "policy": "SALDEO"},
+    )
+    # Invoice XML structure overlaps with Document; reuse the parser until
+    # invoice-specific fields (KSeF status etc.) are needed.
+    invoices = _parse_collection(root, "INVOICES", "INVOICE", Document.from_xml)
+    return InvoiceList(invoices=invoices, count=len(invoices))
+
+
+# ---- Search XML builder ---------------------------------------------------------
+
+
+def _build_search_xml(
+    *,
+    document_id: int | None,
+    number: str | None,
+    nip: str | None,
+    guid: str | None,
+) -> str:
+    """Build the BY_FIELDS document/search payload using ElementTree.
+
+    Avoids hand-rolled escaping: ElementTree escapes special characters
+    (`<`, `>`, `&`) in element text automatically.
+    """
+    root = ET.Element("ROOT")
+    ET.SubElement(root, "POLICY").text = "BY_FIELDS"
+    fields = ET.SubElement(root, "FIELDS")
+    if document_id is not None:
+        ET.SubElement(fields, "DOCUMENT_ID").text = str(document_id)
+    if number:
+        ET.SubElement(fields, "NUMBER").text = number
+    if nip:
+        ET.SubElement(fields, "NIP").text = nip
+    if guid:
+        ET.SubElement(fields, "GUID").text = guid
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
+# ---- Logging & entrypoint -------------------------------------------------------
+
+
+def _setup_logging() -> Path:
+    """Route every log record from this package to a file under
+    ``~/.saldeosmart/logs/`` with daily rotation and one-week retention.
 
     Critical for MCP: stdio is the transport, so writing to stdout would corrupt
     the protocol. We attach only a file handler (no stream handler).
@@ -353,10 +297,7 @@ def _setup_logging() -> Path:
         SALDEO_LOG_LEVEL           — root log level (default INFO)
         SALDEO_LOG_RETENTION_DAYS  — how many daily-rotated files to keep (default 7)
     """
-    log_dir = Path(
-        os.environ.get("SALDEO_LOG_DIR")
-        or Path.home() / ".saldeosmart" / "logs"
-    )
+    log_dir = Path(os.environ.get("SALDEO_LOG_DIR") or Path.home() / ".saldeosmart" / "logs")
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "saldeosmart.log"
 
@@ -373,17 +314,16 @@ def _setup_logging() -> Path:
         encoding="utf-8",
         utc=False,
     )
-    handler.setFormatter(logging.Formatter(
-        "%(asctime)s %(levelname)s %(name)s: %(message)s"
-    ))
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
 
     root = logging.getLogger()
     root.setLevel(os.environ.get("SALDEO_LOG_LEVEL", "INFO"))
 
     # Idempotent: don't stack handlers if main() runs twice (tests, reloads).
     for existing in root.handlers:
-        if (isinstance(existing, TimedRotatingFileHandler)
-                and getattr(existing, "baseFilename", "") == str(log_file)):
+        if isinstance(existing, TimedRotatingFileHandler) and getattr(
+            existing, "baseFilename", ""
+        ) == str(log_file):
             return log_file
     root.addHandler(handler)
     return log_file
@@ -392,7 +332,10 @@ def _setup_logging() -> Path:
 def main() -> None:
     log_file = _setup_logging()
     logger.info("SaldeoSMART MCP server starting; logs at %s", log_file)
-    mcp.run()  # stdio transport — what Claude Desktop expects
+    try:
+        mcp.run()  # stdio transport — what Claude Desktop expects
+    finally:
+        _reset_client_for_tests()
 
 
 if __name__ == "__main__":
