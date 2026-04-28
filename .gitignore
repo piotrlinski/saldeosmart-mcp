@@ -95,6 +95,3 @@ scratch/
 *.key
 secrets.json
 credentials.json
-
-# Local scratch script — kept untracked on purpose
-sandbox.py
