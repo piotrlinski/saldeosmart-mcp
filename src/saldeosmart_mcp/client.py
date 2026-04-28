@@ -148,7 +148,7 @@ class RequestSigner:
         return {"username": self._username, "req_id": req_id, "req_sig": sig}
 
     def _sign(self, params: dict[str, str]) -> str:
-        """Algorithm from spec section "Uwierzytelnianie":
+        """Algorithm from the spec's "Authentication" section:
 
         1. Sort params alphabetically by key (no empty, no duplicates)
         2. Concatenate as key=value (no separator between pairs - per spec example)
@@ -201,7 +201,7 @@ class SaldeoClient:
             timeout=config.timeout,
             headers={"Accept-Encoding": "gzip, deflate"},
         )
-        # Spec: "Brak równoczesnych żądań" — Saldeo refuses concurrent calls per
+        # Spec: "no concurrent requests" — Saldeo refuses concurrent calls per
         # user. FastMCP can dispatch tools concurrently from the thread executor,
         # so serialize at the client boundary.
         self._lock = threading.Lock()
