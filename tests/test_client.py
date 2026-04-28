@@ -14,17 +14,11 @@ from xml.etree import ElementTree as ET
 import httpx
 import pytest
 
-from saldeosmart_mcp.client import (
-    SaldeoClient,
-    SaldeoConfig,
-    SaldeoError,
-    _build_signature,
-    _encode_command,
-    _redact_url,
-    _saldeo_url_encode,
-    el_bool,
-    iter_item_errors,
-)
+from saldeosmart_mcp.config import SaldeoConfig
+from saldeosmart_mcp.errors import SaldeoError, iter_item_errors
+from saldeosmart_mcp.http import SaldeoClient, el_bool
+from saldeosmart_mcp.http.signing import _build_signature, _encode_command, _saldeo_url_encode
+from saldeosmart_mcp.http.xml import _redact_url
 
 
 def test_url_encoding_uses_plus_for_space():
@@ -231,7 +225,7 @@ def test_top_level_error_is_logged_at_warning(caplog):
         "<ERROR_MESSAGE>User is locked</ERROR_MESSAGE></RESPONSE>"
     )
     with (
-        caplog.at_level("WARNING", logger="saldeosmart_mcp.client"),
+        caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
         pytest.raises(SaldeoError),
     ):
         _client()._parse_response(_resp(xml))
@@ -242,7 +236,7 @@ def test_top_level_error_is_logged_at_warning(caplog):
 
 def test_http_error_is_logged_at_warning(caplog):
     with (
-        caplog.at_level("WARNING", logger="saldeosmart_mcp.client"),
+        caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
         pytest.raises(SaldeoError),
     ):
         _client()._parse_response(_resp("<html>oops</html>", status=502))
@@ -251,7 +245,7 @@ def test_http_error_is_logged_at_warning(caplog):
 
 def test_parse_error_is_logged_at_warning(caplog):
     with (
-        caplog.at_level("WARNING", logger="saldeosmart_mcp.client"),
+        caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
         pytest.raises(SaldeoError),
     ):
         _client()._parse_response(_resp("not xml", status=200))
@@ -264,7 +258,7 @@ def test_successful_response_logs_operation_name(caplog):
         "<METAINF><OPERATION>company.list</OPERATION></METAINF>"
         "<STATUS>OK</STATUS><COMPANIES/></RESPONSE>"
     )
-    with caplog.at_level("INFO", logger="saldeosmart_mcp.client"):
+    with caplog.at_level("INFO", logger="saldeosmart_mcp.http.client"):
         _client()._parse_response(_resp(xml))
     assert any("operation=company.list" in r.getMessage() for r in caplog.records)
 

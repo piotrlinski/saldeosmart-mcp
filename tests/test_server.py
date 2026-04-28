@@ -13,7 +13,8 @@ from xml.etree import ElementTree as ET
 
 import pytest
 
-from saldeosmart_mcp.client import ItemError, SaldeoError
+from saldeosmart_mcp.errors import ItemError, SaldeoError
+from saldeosmart_mcp.logging import setup_logging as _setup_logging
 from saldeosmart_mcp.models import (
     ArticleInput,
     BankAccountInput,
@@ -32,27 +33,32 @@ from saldeosmart_mcp.models import (
     RecognizeOptionInput,
     RegisterInput,
 )
-from saldeosmart_mcp.server import (
+from saldeosmart_mcp.tools._builders import (
+    _build_folder_xml,
+    _build_simple_merge_xml,
+)
+from saldeosmart_mcp.tools._runtime import (
+    _error_payload,
+    _summarize_merge,
+)
+from saldeosmart_mcp.tools.catalog import (
     _build_article_merge_xml,
-    _build_contractor_merge_xml,
-    _build_dimension_merge_xml,
+    _build_fee_merge_xml,
+)
+from saldeosmart_mcp.tools.contractors import _build_contractor_merge_xml
+from saldeosmart_mcp.tools.dimensions import _build_dimension_merge_xml
+from saldeosmart_mcp.tools.documents import (
     _build_document_delete_xml,
     _build_document_dimension_xml,
     _build_document_id_groups_xml,
     _build_document_sync_xml,
     _build_document_update_xml,
-    _build_fee_merge_xml,
-    _build_folder_xml,
-    _build_invoice_id_groups_xml,
     _build_ocr_id_list_xml,
-    _build_personnel_list_xml,
     _build_recognize_xml,
     _build_search_xml,
-    _build_simple_merge_xml,
-    _error_payload,
-    _setup_logging,
-    _summarize_merge,
 )
+from saldeosmart_mcp.tools.invoices import _build_invoice_id_groups_xml
+from saldeosmart_mcp.tools.personnel import _build_personnel_list_xml
 
 
 @pytest.fixture
@@ -96,11 +102,11 @@ def test_setup_logging_writes_to_configured_dir(tmp_path, isolated_root_logger, 
 
 
 def test_setup_logging_routes_client_and_server_loggers(tmp_path, isolated_root_logger, clean_env):
-    """Records from both `saldeosmart_mcp.client` and `.server` must land in the file."""
+    """Records from both `saldeosmart_mcp.http.client` and `.server` must land in the file."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     log_file = _setup_logging()
 
-    logging.getLogger("saldeosmart_mcp.client").warning("hello from client")
+    logging.getLogger("saldeosmart_mcp.http.client").warning("hello from client")
     logging.getLogger("saldeosmart_mcp.server").warning("hello from server")
     for h in logging.getLogger().handlers:
         h.flush()
@@ -108,7 +114,7 @@ def test_setup_logging_routes_client_and_server_loggers(tmp_path, isolated_root_
     contents = log_file.read_text(encoding="utf-8")
     assert "hello from client" in contents
     assert "hello from server" in contents
-    assert "saldeosmart_mcp.client" in contents
+    assert "saldeosmart_mcp.http.client" in contents
     assert "saldeosmart_mcp.server" in contents
 
 

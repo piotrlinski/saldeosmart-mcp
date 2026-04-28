@@ -49,7 +49,7 @@ from saldeosmart_mcp.models import (  # noqa: E402
     ErrorResponse,
     InvoiceIdGroups,
 )
-from saldeosmart_mcp.server import (  # noqa: E402
+from saldeosmart_mcp.tools import (  # noqa: E402
     get_document_id_list,
     get_documents_by_id,
     get_invoice_id_list,

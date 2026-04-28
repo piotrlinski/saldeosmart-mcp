@@ -182,16 +182,59 @@ docker run --rm -i \
 
 ## Architecture
 
-- `client.py` — low-level HTTP client. Handles:
-  - the `req_sig` signature (MD5 of sorted params + URL-encode + token)
-  - XML payload encoding (`gzip` → `base64` → `command` parameter)
-  - automatic response decompression (gzip via httpx)
-  - SaldeoSMART error parsing (`<STATUS>ERROR</STATUS>`, plus per-item failures inside successful envelopes)
-  - serialization with `threading.Lock` to honor the spec's "no concurrent requests" rule under FastMCP's thread executor
-  - `SecretStr` for the API token so it never leaks via repr/str/logs
-  - URL redaction (`req_sig=***`) on every logged URL
-- `server.py` — the MCP layer. Each `@mcp.tool` is a plain Python function with types and a docstring; FastMCP builds the JSON Schema for Claude automatically.
-- `models.py` — Pydantic models for both response shapes (returned by tools) and write inputs (passed by Claude to tools). Each response model carries a `from_xml` classmethod; each input model is consumed by a builder in `server.py`.
+The package is a strict stack — each layer may import from layers below it,
+never above. A test (`tests/test_layering.py`) parses every import statement
+in the source tree and fails CI if anything reaches upward.
+
+```
+src/saldeosmart_mcp/
+├── config.py          # SaldeoConfig (Pydantic Settings) — env vars, base URL
+├── errors.py          # SaldeoError, ItemError, ErrorResponse, MergeResult,
+│                      # iter_item_errors (per-item failure walker)
+├── logging.py         # daily-rotated file logger (stdio is the MCP transport)
+│
+├── http/              # transport layer
+│   ├── signing.py     # RequestSigner — MD5(URL-encode(sorted params) + token)
+│   ├── client.py      # SaldeoClient — httpx pool + threading.Lock + envelope parser
+│   └── xml.py         # el_text/el_int/el_bool/set_text + URL redaction
+│
+├── models/            # everything that crosses the MCP boundary as JSON
+│   ├── common.py      # cross-resource (BankAccount, BankAccountInput)
+│   ├── companies.py   # Company, CompanyList
+│   ├── contractors.py # Contractor(+List), ContractorInput
+│   ├── documents.py   # Document, DocumentList, DocumentIdGroups,
+│   │                  # DocumentUpdateInput, DocumentSyncInput, …
+│   ├── invoices.py    # InvoiceList, InvoiceIdGroups
+│   ├── bank.py        # BankStatement(+List), BankOperation
+│   ├── personnel.py   # Employee, PersonnelDocument
+│   └── catalog.py     # CategoryInput, RegisterInput, ArticleInput, FeeInput, …
+│
+├── tools/             # @mcp.tool registry — one file per Saldeo resource
+│   ├── _runtime.py    # mcp = FastMCP(...), saldeo_call decorator, get_client(),
+│   │                  # summarize_merge, parse_collection
+│   ├── _builders.py   # generic XML builders shared across resources
+│   ├── companies.py   # list_companies
+│   ├── contractors.py # list_/merge_contractors
+│   ├── documents.py   # list_/search_/update_/delete_/recognize_/sync_, 3.0 ID-list
+│   ├── invoices.py    # list_/get_invoice_*
+│   ├── bank.py        # list_bank_statements
+│   ├── personnel.py   # list_employees, list_personnel_documents
+│   ├── dimensions.py  # merge_dimensions
+│   └── catalog.py     # categories, payment_methods, registers, descriptions,
+│                      # articles, fees
+│
+└── server.py          # main() — sets up logging, imports tools, runs mcp.run()
+                       # (kept at top level for the console-script entry point)
+```
+
+Highlights:
+
+- **Request signing** (`http/signing.py`) implements the Saldeo MD5 contract: sort params, concatenate as `key=value` with no separator, URL-encode, append token, hash. Encapsulated in a single class — easy to test, easy to mock, the only place that ever sees the raw token.
+- **Two request methods** on `SaldeoClient` (`http/client.py`): `get(path, query)` for endpoints whose request fits in URL params, and `post_command(path, xml_command, query, extra_form)` for endpoints with a structured body or file attachments. The split mirrors the Saldeo spec — both reads and writes can use either.
+- **The `command` form field** carries gzip-compressed, base64-encoded XML. Saldeo signs over the *full request* (URL + form), so `post_command` hashes both together.
+- **`threading.Lock`** in `SaldeoClient` serializes calls because Saldeo's spec forbids concurrent requests per user; FastMCP's thread executor would otherwise issue them in parallel.
+- **`SecretStr`** for the API token (never leaks via `repr()`/logs); URL redaction wipes `req_sig` and `api_token` from every logged URL.
+- **Per-item error walker** (`iter_item_errors` in `errors.py`) — Saldeo answers `STATUS=OK` at the envelope level even when individual batch items fail, so write tools call this and report partial successes via `MergeResult`.
 
 ## API limits (heads-up)
 

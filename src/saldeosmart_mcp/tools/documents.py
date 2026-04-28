@@ -1,0 +1,424 @@
+"""Document tools — read, search, and write the cost-document family.
+
+Covers nine MCP tools and their per-tool builders. The 3.0 paginated
+endpoints (``getidlist`` / ``listbyid``) return their own typed shapes
+(:class:`DocumentIdGroups`); the 2.x endpoints return :class:`DocumentList`.
+"""
+
+from __future__ import annotations
+
+from xml.etree import ElementTree as ET
+
+from ..http.xml import set_text
+from ..models import (
+    Document,
+    DocumentDimensionInput,
+    DocumentIdGroups,
+    DocumentList,
+    DocumentPolicy,
+    DocumentSyncInput,
+    DocumentUpdateInput,
+    ErrorResponse,
+    MergeResult,
+    RecognizeOptionInput,
+)
+from ._builders import build_folder_xml
+from ._runtime import (
+    get_client,
+    mcp,
+    parse_collection,
+    saldeo_call,
+    summarize_merge,
+)
+
+# ---- Reads -----------------------------------------------------------------------
+
+
+@mcp.tool
+@saldeo_call
+def list_documents(
+    company_program_id: str,
+    policy: DocumentPolicy = "LAST_10_DAYS",
+) -> DocumentList | ErrorResponse:
+    """List documents (invoices, receipts) for a company.
+
+    Args:
+        company_program_id: External program ID of the company.
+        policy: Which documents to return:
+            - LAST_10_DAYS — all documents added in the last 10 days (default)
+            - LAST_10_DAYS_OCRED — only OCR-processed docs from last 10 days
+            - SALDEO — only documents marked for export from SaldeoSMART UI
+    """
+    # Use API version 2.12 — most recent stable with rich document fields.
+    root = get_client().get(
+        "/api/xml/2.12/document/list",
+        query={"company_program_id": company_program_id, "policy": policy},
+    )
+    documents = parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
+@mcp.tool
+@saldeo_call
+def search_documents(
+    company_program_id: str,
+    document_id: int | None = None,
+    number: str | None = None,
+    nip: str | None = None,
+    guid: str | None = None,
+) -> DocumentList | ErrorResponse:
+    """Search for specific documents by ID, document number, contractor NIP, or GUID.
+
+    Pass at least one of document_id / number / nip / guid. Combining number+nip
+    narrows down a single invoice from a known supplier.
+    """
+    if not any((document_id, number, nip, guid)):
+        return ErrorResponse(
+            error="MISSING_CRITERIA",
+            message="Provide at least one of document_id, number, nip, or guid.",
+        )
+
+    xml = _build_search_xml(document_id=document_id, number=number, nip=nip, guid=guid)
+    root = get_client().post_command(
+        "/api/xml/1.8/document/search",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    documents = parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
+@mcp.tool
+@saldeo_call
+def get_document_id_list(
+    company_program_id: str,
+    year: int,
+    month: int,
+) -> DocumentIdGroups | ErrorResponse:
+    """List document IDs in one folder, grouped by kind (SS22).
+
+    A 3.0 endpoint. Use this first to discover IDs, then `get_documents_by_id`
+    to fetch full document details. Saldeo splits results into eight buckets
+    (contracts, cost invoices, sale invoices, internal/material invoices,
+    orders, writings, other). Empty buckets come back empty.
+    """
+    xml = build_folder_xml(year, month)
+    root = get_client().post_command(
+        "/api/xml/3.0/document/getidlist",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return DocumentIdGroups.from_xml(root)
+
+
+@mcp.tool
+@saldeo_call
+def get_documents_by_id(
+    company_program_id: str,
+    contracts: list[int] | None = None,
+    invoices_cost: list[int] | None = None,
+    invoices_internal: list[int] | None = None,
+    invoices_material: list[int] | None = None,
+    invoices_sale: list[int] | None = None,
+    orders: list[int] | None = None,
+    writings: list[int] | None = None,
+    other_documents: list[int] | None = None,
+) -> DocumentList | ErrorResponse:
+    """Fetch documents by ID, grouped by kind (SS23).
+
+    Pass IDs in the buckets returned by `get_document_id_list`. Empty buckets
+    can be omitted. Returns a flat ``DocumentList`` of whatever the server
+    sent back (Saldeo returns the full document records, not just the IDs).
+    """
+    xml = _build_document_id_groups_xml(
+        contracts=contracts,
+        invoices_cost=invoices_cost,
+        invoices_internal=invoices_internal,
+        invoices_material=invoices_material,
+        invoices_sale=invoices_sale,
+        orders=orders,
+        writings=writings,
+        other_documents=other_documents,
+    )
+    root = get_client().post_command(
+        "/api/xml/3.0/document/listbyid",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    documents = parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
+@mcp.tool
+@saldeo_call
+def list_recognized_documents(
+    company_program_id: str,
+    ocr_origin_ids: list[int],
+) -> DocumentList | ErrorResponse:
+    """Fetch the OCR-processed document data for a set of OCR origin IDs (SS08).
+
+    Args:
+        company_program_id: External program ID of the company.
+        ocr_origin_ids: IDs returned by a prior ``document.recognize`` call.
+            Saldeo requires at least one — there's no "list everything" mode.
+
+    Returns the same ``DocumentList`` shape as ``list_documents``. The richer
+    nested data (articles, OCR origins, dimensions, KSeF) is dropped to keep
+    the response Claude-friendly; reach for the lower-level client if needed.
+    """
+    if not ocr_origin_ids:
+        return ErrorResponse(
+            error="MISSING_CRITERIA",
+            message="Provide at least one OCR origin ID. Get them from document.recognize.",
+        )
+    xml = _build_ocr_id_list_xml(ocr_origin_ids)
+    root = get_client().post_command(
+        "/api/xml/2.18/document/list_recognized",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    documents = parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
+# ---- Writes ----------------------------------------------------------------------
+
+
+@mcp.tool
+@saldeo_call
+def update_documents(
+    company_program_id: str,
+    documents: list[DocumentUpdateInput],
+) -> MergeResult | ErrorResponse:
+    """Edit existing documents (SS17).
+
+    Only set the fields you want to change — everything left as ``None`` is
+    preserved on the server side.
+    """
+    xml = _build_document_update_xml(documents)
+    root = get_client().post_command(
+        "/api/xml/2.4/document/update",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return summarize_merge(root, total=len(documents))
+
+
+@mcp.tool
+@saldeo_call
+def delete_documents(
+    company_program_id: str,
+    document_ids: list[int],
+) -> MergeResult | ErrorResponse:
+    """Delete documents by Saldeo document_id (SS16).
+
+    ⚠ Destructive. Each ID is removed in Saldeo.
+    """
+    xml = _build_document_delete_xml(document_ids)
+    root = get_client().post_command(
+        "/api/xml/1.13/document/delete",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return summarize_merge(root, total=len(document_ids))
+
+
+@mcp.tool
+@saldeo_call
+def recognize_documents(
+    company_program_id: str,
+    documents: list[RecognizeOptionInput],
+) -> MergeResult | ErrorResponse:
+    """Trigger OCR recognition on previously-uploaded documents (SS06).
+
+    Saldeo returns OCR_ORIGIN_IDs you can later pass to
+    ``list_recognized_documents`` once the recognition completes.
+    """
+    xml = _build_recognize_xml(documents)
+    root = get_client().post_command(
+        "/api/xml/1.20/document/recognize",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return summarize_merge(root, total=len(documents))
+
+
+@mcp.tool
+@saldeo_call
+def sync_documents(
+    company_program_id: str,
+    syncs: list[DocumentSyncInput],
+) -> MergeResult | ErrorResponse:
+    """Push accounting numbering / status back to Saldeo (SS13).
+
+    Used by ERP integrations to tell Saldeo "we booked this document under
+    register X with number Y" so the Saldeo UI can show the right state.
+    Each entry must identify the document either by ``saldeo_id`` or by the
+    triple (``contractor_program_id``, ``document_number``, ``issue_date``).
+    """
+    xml = _build_document_sync_xml(syncs)
+    root = get_client().post_command(
+        "/api/xml/1.13/document/sync",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return summarize_merge(root, total=len(syncs))
+
+
+@mcp.tool
+@saldeo_call
+def merge_document_dimensions(
+    company_program_id: str,
+    documents: list[DocumentDimensionInput],
+) -> MergeResult | ErrorResponse:
+    """Set dimension values on existing documents (SS20).
+
+    Each entry pins one document and the dimension code/value pairs to set.
+    The dimensions referenced must already exist (use ``merge_dimensions``).
+    """
+    xml = _build_document_dimension_xml(documents)
+    root = get_client().post_command(
+        "/api/xml/1.13/document_dimension/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return summarize_merge(root, total=len(documents))
+
+
+# ---- Builders --------------------------------------------------------------------
+
+
+def _build_search_xml(
+    *,
+    document_id: int | None,
+    number: str | None,
+    nip: str | None,
+    guid: str | None,
+) -> str:
+    """Build the BY_FIELDS document/search payload using ElementTree.
+
+    Avoids hand-rolled escaping: ElementTree escapes special characters
+    (`<`, `>`, `&`) in element text automatically.
+
+    Saldeo names the element ``SEARCH_POLICY`` (not ``POLICY``); using the
+    wrong tag returns ``4401 No SEARCH_POLICY found in file``.
+    """
+    root = ET.Element("ROOT")
+    ET.SubElement(root, "SEARCH_POLICY").text = "BY_FIELDS"
+    fields = ET.SubElement(root, "FIELDS")
+    if document_id is not None:
+        ET.SubElement(fields, "DOCUMENT_ID").text = str(document_id)
+    if number:
+        ET.SubElement(fields, "NUMBER").text = number
+    if nip:
+        ET.SubElement(fields, "NIP").text = nip
+    if guid:
+        ET.SubElement(fields, "GUID").text = guid
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
+def _build_document_id_groups_xml(
+    *,
+    contracts: list[int] | None,
+    invoices_cost: list[int] | None,
+    invoices_internal: list[int] | None,
+    invoices_material: list[int] | None,
+    invoices_sale: list[int] | None,
+    orders: list[int] | None,
+    writings: list[int] | None,
+    other_documents: list[int] | None,
+) -> str:
+    from ._builders import append_id_group
+
+    root = ET.Element("ROOT")
+    append_id_group(root, "CONTRACTS", "CONTRACT", contracts)
+    append_id_group(root, "INVOICES_COST", "INVOICE_COST", invoices_cost)
+    append_id_group(root, "INVOICES_INTERNAL", "INVOICE_INTERNAL", invoices_internal)
+    append_id_group(root, "INVOICES_MATERIAL", "INVOICE_MATERIAL", invoices_material)
+    append_id_group(root, "INVOICES_SALE", "INVOICE_SALE", invoices_sale)
+    append_id_group(root, "ORDERS", "ORDER", orders)
+    append_id_group(root, "WRITINGS", "WRITING", writings)
+    append_id_group(root, "OTHER_DOCUMENTS", "OTHER_DOCUMENT", other_documents)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_ocr_id_list_xml(ocr_origin_ids: list[int]) -> str:
+    """Body for document.list_recognized.
+
+    Shape: ``<ROOT><OCR_ID_LIST><OCR_ORIGIN_ID/>...</OCR_ID_LIST></ROOT>``.
+    """
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "OCR_ID_LIST")
+    for ocr_id in ocr_origin_ids:
+        ET.SubElement(container, "OCR_ORIGIN_ID").text = str(ocr_id)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_update_xml(documents: list[DocumentUpdateInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENTS")
+    for d in documents:
+        item = ET.SubElement(container, "DOCUMENT")
+        set_text(item, "DOCUMENT_ID", d.document_id)
+        set_text(item, "NUMBER", d.number)
+        set_text(item, "ISSUE_DATE", d.issue_date)
+        set_text(item, "SALE_DATE", d.sale_date)
+        set_text(item, "PAYMENT_DATE", d.payment_date)
+        if d.contractor_program_id is not None:
+            contractor = ET.SubElement(item, "CONTRACTOR")
+            set_text(contractor, "CONTRACTOR_PROGRAM_ID", d.contractor_program_id)
+        set_text(item, "BANK_ACCOUNT", d.bank_account)
+        set_text(item, "SELF_LEARNING", d.self_learning)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_delete_xml(document_ids: list[int]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENT_DELETE_IDS")
+    for doc_id in document_ids:
+        ET.SubElement(container, "DOCUMENT_DELETE_ID").text = str(doc_id)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_recognize_xml(documents: list[RecognizeOptionInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENTS")
+    for d in documents:
+        item = ET.SubElement(container, "DOCUMENT")
+        set_text(item, "DOCUMENT_ID", d.document_id)
+        set_text(item, "SPLIT_MODE", d.split_mode)
+        set_text(item, "NO_ROTATE", d.no_rotate)
+        set_text(item, "OVERWRITE_DATA", d.overwrite_data)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_sync_xml(syncs: list[DocumentSyncInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENT_SYNCS")
+    for s in syncs:
+        item = ET.SubElement(container, "DOCUMENT_SYNC")
+        set_text(item, "SALDEO_ID", s.saldeo_id)
+        set_text(item, "SALDEO_GUID", s.saldeo_guid)
+        set_text(item, "CONTRACTOR_PROGRAM_ID", s.contractor_program_id)
+        set_text(item, "DOCUMENT_NUMBER", s.document_number)
+        set_text(item, "ISSUE_DATE", s.issue_date)
+        set_text(item, "GUID", s.guid)
+        set_text(item, "DESCRIPTION", s.description)
+        set_text(item, "NUMBERING_TYPE", s.numbering_type)
+        set_text(item, "ACCOUNT_DOCUMENT_NUMBER", s.account_document_number)
+        set_text(item, "DOCUMENT_STATUS", s.document_status)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_dimension_xml(items: list[DocumentDimensionInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENT_DIMENSIONS")
+    for d in items:
+        item = ET.SubElement(container, "DOCUMENT_DIMENSION")
+        set_text(item, "DOCUMENT_ID", d.document_id)
+        dims = ET.SubElement(item, "DIMENSIONS")
+        for dv in d.dimensions:
+            dv_el = ET.SubElement(dims, "DIMENSION")
+            set_text(dv_el, "CODE", dv.code)
+            set_text(dv_el, "VALUE", dv.value)
+    return ET.tostring(root, encoding="unicode")

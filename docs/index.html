@@ -559,11 +559,42 @@ uv run saldeosmart-mcp     # console script declared in pyproject.toml</code></p
 </pre>
     </div>
 
-    <p>Three Python modules:</p>
+    <p>The package is organized as a strict stack. A higher layer may import from layers below it, never the other way around. A test (<code>tests/test_layering.py</code>) parses every import statement in the source tree and fails CI on any upward dependency.</p>
+
+<pre><code>src/saldeosmart_mcp/
+├── config.py          # SaldeoConfig — env-driven settings
+├── errors.py          # SaldeoError, ErrorResponse, ItemError, MergeResult,
+│                      # iter_item_errors (per-item failure walker)
+├── logging.py         # daily-rotated file logger
+│
+├── http/              # transport layer
+│   ├── signing.py     # RequestSigner — MD5(URL-encode(sorted) + token)
+│   ├── client.py      # SaldeoClient — httpx + threading.Lock + envelope parser
+│   └── xml.py         # el_text/el_int/el_bool/set_text + URL redaction
+│
+├── models/            # everything serialized over MCP
+│   ├── common.py      # cross-resource (BankAccount, BankAccountInput)
+│   ├── companies.py   ├── contractors.py
+│   ├── documents.py   ├── invoices.py
+│   ├── bank.py        ├── personnel.py
+│   └── catalog.py     # categories, registers, payment methods, articles, fees
+│
+├── tools/             # @mcp.tool registry — one file per resource
+│   ├── _runtime.py    # mcp = FastMCP(), saldeo_call, get_client,
+│   │                  # summarize_merge, parse_collection
+│   ├── _builders.py   # XML builders shared across resources
+│   ├── companies.py   ├── contractors.py   ├── documents.py
+│   ├── invoices.py    ├── bank.py          ├── personnel.py
+│   ├── dimensions.py  └── catalog.py
+│
+└── server.py          # main() — entrypoint; imports tools, runs mcp.run()</code></pre>
+
+    <h3>Why this layout</h3>
     <ul>
-      <li><code>client.py</code> — low-level HTTP. Owns the <code>httpx.Client</code>, the <code>RequestSigner</code>, the threading lock, the error envelope parser, and the per-item error walker.</li>
-      <li><code>models.py</code> — Pydantic models for every read response and every write input, plus <code>MergeResult</code> for batch outcomes.</li>
-      <li><code>server.py</code> — the FastMCP layer. Each <code>@mcp.tool</code> is a thin function: build XML / collect query params, call the client, hand the parsed XML back to a model. No business logic lives here.</li>
+      <li><strong>One file per Saldeo resource family.</strong> Looking for the document tools? <code>tools/documents.py</code>. Bank statements? <code>tools/bank.py</code>. The package mirrors how the API itself is organized.</li>
+      <li><strong>Strict layering.</strong> <code>config</code> → <code>errors</code> → <code>http</code> → <code>models</code> → <code>tools</code> → <code>server</code>. Lower layers know nothing about upper ones, so swapping any one layer is contained.</li>
+      <li><strong>The mcp instance lives in <code>tools/_runtime.py</code>.</strong> Every tool module imports it once and registers <code>@mcp.tool</code> decorators against it. <code>tools/__init__.py</code> imports every submodule so the registry is populated as soon as <code>saldeosmart_mcp.tools</code> is imported.</li>
+      <li><strong><code>server.py</code> is a 40-line entrypoint.</strong> Logging setup, tool import (registers everything), then <code>mcp.run()</code>. Nothing else.</li>
     </ul>
   </section>
 
