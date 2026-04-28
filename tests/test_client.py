@@ -220,6 +220,47 @@ def test_iter_item_errors_handles_personnel_status_message():
     assert errs[0].message == "missing required field"
 
 
+def test_top_level_error_is_logged_at_warning(caplog):
+    """The httpx layer logs HTTP 200 OK for these — without our log, the
+    real SaldeoSMART error would be invisible in the log file."""
+    xml = (
+        "<RESPONSE><STATUS>ERROR</STATUS>"
+        "<ERROR_CODE>4302</ERROR_CODE>"
+        "<ERROR_MESSAGE>User is locked</ERROR_MESSAGE></RESPONSE>"
+    )
+    with caplog.at_level("WARNING", logger="saldeosmart_mcp.client"):
+        with pytest.raises(SaldeoError):
+            _client()._parse_response(_resp(xml))
+
+    msgs = [r.getMessage() for r in caplog.records]
+    assert any("code=4302" in m and "User is locked" in m for m in msgs)
+
+
+def test_http_error_is_logged_at_warning(caplog):
+    with caplog.at_level("WARNING", logger="saldeosmart_mcp.client"):
+        with pytest.raises(SaldeoError):
+            _client()._parse_response(_resp("<html>oops</html>", status=502))
+    assert any("status=502" in r.getMessage() for r in caplog.records)
+
+
+def test_parse_error_is_logged_at_warning(caplog):
+    with caplog.at_level("WARNING", logger="saldeosmart_mcp.client"):
+        with pytest.raises(SaldeoError):
+            _client()._parse_response(_resp("not xml", status=200))
+    assert any("parse error" in r.getMessage().lower() for r in caplog.records)
+
+
+def test_successful_response_logs_operation_name(caplog):
+    xml = (
+        "<RESPONSE>"
+        "<METAINF><OPERATION>company.list</OPERATION></METAINF>"
+        "<STATUS>OK</STATUS><COMPANIES/></RESPONSE>"
+    )
+    with caplog.at_level("INFO", logger="saldeosmart_mcp.client"):
+        _client()._parse_response(_resp(xml))
+    assert any("operation=company.list" in r.getMessage() for r in caplog.records)
+
+
 def test_iter_item_errors_empty_on_all_success():
     xml = (
         "<RESPONSE><STATUS>OK</STATUS>"
