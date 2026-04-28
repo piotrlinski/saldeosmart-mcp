@@ -66,7 +66,6 @@ class DimensionInput(BaseModel):
 
 class ForeignCodeInput(BaseModel):
     contractor_short_name: str | None = None
-    contractor_program_id: str | None = None
     code: str
 
 

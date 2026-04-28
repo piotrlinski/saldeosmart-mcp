@@ -393,20 +393,23 @@ def _build_recognize_xml(documents: list[RecognizeOptionInput]) -> str:
 
 
 def _build_document_sync_xml(syncs: list[DocumentSyncInput]) -> str:
+    # Element order matters — Saldeo's document.sync XSD declares
+    # <xs:sequence>, which strict parsers enforce. Mirror the spec at
+    # .temp/api-html-mirror/1_13/documentsync/document_sync_request.xsd.
     root = ET.Element("ROOT")
     container = ET.SubElement(root, "DOCUMENT_SYNCS")
     for s in syncs:
         item = ET.SubElement(container, "DOCUMENT_SYNC")
         set_text(item, "SALDEO_ID", s.saldeo_id)
-        set_text(item, "SALDEO_GUID", s.saldeo_guid)
         set_text(item, "CONTRACTOR_PROGRAM_ID", s.contractor_program_id)
         set_text(item, "DOCUMENT_NUMBER", s.document_number)
-        set_text(item, "ISSUE_DATE", s.issue_date)
         set_text(item, "GUID", s.guid)
         set_text(item, "DESCRIPTION", s.description)
         set_text(item, "NUMBERING_TYPE", s.numbering_type)
         set_text(item, "ACCOUNT_DOCUMENT_NUMBER", s.account_document_number)
         set_text(item, "DOCUMENT_STATUS", s.document_status)
+        set_text(item, "ISSUE_DATE", s.issue_date)
+        set_text(item, "SALDEO_GUID", s.saldeo_guid)
     return ET.tostring(root, encoding="unicode")
 
 
