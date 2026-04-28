@@ -9,11 +9,12 @@ from __future__ import annotations
 import logging
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 import pytest
 
 from saldeosmart_mcp.client import ItemError, SaldeoError
-from saldeosmart_mcp.server import _error_payload, _setup_logging
+from saldeosmart_mcp.server import _build_search_xml, _error_payload, _setup_logging
 
 
 @pytest.fixture
@@ -215,3 +216,37 @@ def test_error_payload_omits_optional_fields_when_absent():
     payload = _error_payload(e)
     assert "http_status" not in payload
     assert "details" not in payload
+
+
+# ---- _build_search_xml -----------------------------------------------------------
+
+
+def test_build_search_xml_uses_search_policy_tag():
+    """Saldeo expects <SEARCH_POLICY>, not <POLICY>. Wrong tag returns
+    `4401 No SEARCH_POLICY found in file` from the live API."""
+    xml = _build_search_xml(document_id=123, number=None, nip=None, guid=None)
+    root = ET.fromstring(xml)
+    assert root.find("SEARCH_POLICY") is not None
+    assert root.find("SEARCH_POLICY").text == "BY_FIELDS"
+    assert root.find("POLICY") is None  # avoid silently regressing
+
+
+def test_build_search_xml_only_includes_provided_fields():
+    xml = _build_search_xml(document_id=None, number="FV/1/2024", nip=None, guid=None)
+    root = ET.fromstring(xml)
+    fields = root.find("FIELDS")
+    assert fields is not None
+    assert fields.find("NUMBER").text == "FV/1/2024"
+    assert fields.find("DOCUMENT_ID") is None
+    assert fields.find("NIP") is None
+    assert fields.find("GUID") is None
+
+
+def test_build_search_xml_escapes_special_characters():
+    """ElementTree must escape angle brackets, ampersands, etc. in field values."""
+    xml = _build_search_xml(
+        document_id=None, number="A&B<X>", nip=None, guid=None
+    )
+    # If escaping failed, fromstring would raise.
+    root = ET.fromstring(xml)
+    assert root.find("FIELDS/NUMBER").text == "A&B<X>"

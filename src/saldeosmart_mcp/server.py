@@ -267,9 +267,12 @@ def _build_search_xml(
 
     Avoids hand-rolled escaping: ElementTree escapes special characters
     (`<`, `>`, `&`) in element text automatically.
+
+    Saldeo names the element ``SEARCH_POLICY`` (not ``POLICY``); using the
+    wrong tag returns ``4401 No SEARCH_POLICY found in file``.
     """
     root = ET.Element("ROOT")
-    ET.SubElement(root, "POLICY").text = "BY_FIELDS"
+    ET.SubElement(root, "SEARCH_POLICY").text = "BY_FIELDS"
     fields = ET.SubElement(root, "FIELDS")
     if document_id is not None:
         ET.SubElement(fields, "DOCUMENT_ID").text = str(document_id)
