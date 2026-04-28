@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import logging
 import os
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
 
@@ -137,7 +139,7 @@ def list_companies(company_program_id: str | None = None) -> dict[str, Any]:
         try:
             root = c.get("/api/xml/1.0/company/list", query=query)
         except SaldeoError as e:
-            return {"error": e.code, "message": e.message}
+            return _error_payload(e)
 
     companies_el = root.find("COMPANIES")
     companies = (
@@ -165,7 +167,7 @@ def list_contractors(company_program_id: str) -> dict[str, Any]:
             root = c.get("/api/xml/1.23/contractor/list",
                          query={"company_program_id": company_program_id})
         except SaldeoError as e:
-            return {"error": e.code, "message": e.message}
+            return _error_payload(e)
 
     contractors_el = root.find("CONTRACTORS")
     contractors = (
@@ -207,7 +209,7 @@ def list_documents(
                          query={"company_program_id": company_program_id,
                                 "policy": policy})
         except SaldeoError as e:
-            return {"error": e.code, "message": e.message}
+            return _error_payload(e)
 
     docs_el = root.find("DOCUMENTS")
     documents = (
@@ -274,7 +276,7 @@ def search_documents(
                 query={"company_program_id": company_program_id},
             )
         except SaldeoError as e:
-            return {"error": e.code, "message": e.message}
+            return _error_payload(e)
 
     docs_el = root.find("DOCUMENTS")
     documents = (
@@ -304,7 +306,7 @@ def list_invoices(company_program_id: str) -> dict[str, Any]:
                          query={"company_program_id": company_program_id,
                                 "policy": "SALDEO"})
         except SaldeoError as e:
-            return {"error": e.code, "message": e.message}
+            return _error_payload(e)
 
     invoices_el = root.find("INVOICES")
     invoices: list[dict[str, Any]] = []
@@ -324,11 +326,72 @@ def _xml_escape(s: str) -> str:
              .replace(">", "&gt;"))
 
 
-def main() -> None:
-    logging.basicConfig(
-        level=os.environ.get("SALDEO_LOG_LEVEL", "INFO"),
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+def _error_payload(e: SaldeoError) -> dict[str, Any]:
+    """Render SaldeoError as a JSON-friendly dict for the MCP boundary."""
+    payload: dict[str, Any] = {"error": e.code, "message": e.message}
+    if e.http_status is not None:
+        payload["http_status"] = e.http_status
+    if e.details:
+        payload["details"] = [
+            {"status": d.status, "path": d.path, "message": d.message,
+             "item_id": d.item_id}
+            for d in e.details
+        ]
+    return payload
+
+
+def _setup_logging() -> Path:
+    """
+    Route every log record from this package (client + server) to a file under
+    `~/.saldeosmart/logs/` with daily rotation and one-week retention.
+
+    Critical for MCP: stdio is the transport, so writing to stdout would corrupt
+    the protocol. We attach only a file handler (no stream handler).
+
+    Configurable via env vars:
+        SALDEO_LOG_DIR             — override the directory (default ~/.saldeosmart/logs)
+        SALDEO_LOG_LEVEL           — root log level (default INFO)
+        SALDEO_LOG_RETENTION_DAYS  — how many daily-rotated files to keep (default 7)
+    """
+    log_dir = Path(
+        os.environ.get("SALDEO_LOG_DIR")
+        or Path.home() / ".saldeosmart" / "logs"
     )
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "saldeosmart.log"
+
+    try:
+        retention_days = int(os.environ.get("SALDEO_LOG_RETENTION_DAYS", "7"))
+    except ValueError:
+        retention_days = 7
+    retention_days = max(retention_days, 1)
+
+    handler = TimedRotatingFileHandler(
+        log_file,
+        when="midnight",
+        backupCount=retention_days,
+        encoding="utf-8",
+        utc=False,
+    )
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s: %(message)s"
+    ))
+
+    root = logging.getLogger()
+    root.setLevel(os.environ.get("SALDEO_LOG_LEVEL", "INFO"))
+
+    # Idempotent: don't stack handlers if main() runs twice (tests, reloads).
+    for existing in root.handlers:
+        if (isinstance(existing, TimedRotatingFileHandler)
+                and getattr(existing, "baseFilename", "") == str(log_file)):
+            return log_file
+    root.addHandler(handler)
+    return log_file
+
+
+def main() -> None:
+    log_file = _setup_logging()
+    logger.info("SaldeoSMART MCP server starting; logs at %s", log_file)
     mcp.run()  # stdio transport — what Claude Desktop expects
 
 

@@ -31,13 +31,52 @@ DEFAULT_BASE_URL = "https://saldeo.brainshare.pl"
 DEFAULT_TIMEOUT = 30.0
 
 
-class SaldeoError(Exception):
-    """Raised when SaldeoSMART API returns an error response."""
+@dataclass
+class ItemError:
+    """A per-item validation/operation error nested inside a successful RESPONSE.
 
-    def __init__(self, code: str, message: str, raw_xml: str | None = None):
+    SaldeoSMART batch endpoints (e.g. document/update, document/import,
+    employee/add, personnel/document/add) report results per item and include
+    detailed errors when an individual item fails. This wraps both shapes:
+
+    - validation errors:   <ERRORS><ERROR><PATH/><MESSAGE/></ERROR></ERRORS>
+    - operational errors:  <UPDATE_STATUS>ERROR</UPDATE_STATUS><ERROR_MESSAGE/>
+
+    `path` is empty ("") for operational errors that don't point at a field.
+    """
+
+    status: str
+    path: str
+    message: str
+    item_id: str | None = None
+
+
+class SaldeoError(Exception):
+    """Raised when SaldeoSMART API returns an error response.
+
+    Covers both:
+    - top-level errors: <RESPONSE><STATUS>ERROR</STATUS>
+                        <ERROR_CODE/><ERROR_MESSAGE/></RESPONSE>
+    - HTTP transport errors (non-2xx, network, parse failures), encoded with
+      synthetic codes like HTTP_500, NETWORK_ERROR, PARSE_ERROR.
+
+    `details` carries per-field validation errors when present (rare for
+    top-level errors, common for per-item errors via :func:`iter_item_errors`).
+    """
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        raw_xml: str | None = None,
+        http_status: int | None = None,
+        details: list[ItemError] | None = None,
+    ):
         self.code = code
         self.message = message
         self.raw_xml = raw_xml
+        self.http_status = http_status
+        self.details = details or []
         super().__init__(f"[{code}] {message}")
 
 
@@ -176,37 +215,56 @@ class SaldeoClient:
         """
         SaldeoSMART responses are XML (httpx auto-decompresses gzip thanks to
         the Accept-Encoding header). Parses, then checks for STATUS=ERROR.
+
+        Order of checks:
+          1. Try to parse the body as XML — even on HTTP 4xx/5xx, the server
+             often returns the standard error envelope, and ERROR_CODE there
+             is much more useful than the bare HTTP status.
+          2. If parsed body has <STATUS>ERROR</STATUS>, raise SaldeoError
+             with ERROR_CODE / ERROR_MESSAGE from the envelope.
+          3. Else if HTTP status is non-2xx, raise an HTTP_<code> error.
+          4. Else if XML parse failed entirely, raise PARSE_ERROR.
         """
         text = resp.text  # httpx handles gzip transparently
-        if resp.status_code >= 400:
+        http_status = resp.status_code
+
+        root: ET.Element | None = None
+        parse_error: ET.ParseError | None = None
+        try:
+            root = ET.fromstring(text) if text else None
+        except ET.ParseError as e:
+            parse_error = e
+
+        # 1. Structured error envelope wins over HTTP status.
+        if root is not None:
+            status_el = root.find("STATUS")
+            if status_el is not None and (status_el.text or "").strip().upper() == "ERROR":
+                code = (el_text(root, "ERROR_CODE") or "").strip()
+                msg = (el_text(root, "ERROR_MESSAGE") or "").strip()
+                raise SaldeoError(
+                    code=code or "UNKNOWN",
+                    message=msg or "SaldeoSMART returned STATUS=ERROR with no ERROR_MESSAGE",
+                    raw_xml=text,
+                    http_status=http_status if http_status >= 400 else None,
+                )
+
+        # 2. HTTP-level failure with no structured envelope.
+        if http_status >= 400:
+            snippet = (text or "").strip()[:500] or resp.reason_phrase or "<empty body>"
             raise SaldeoError(
-                code=f"HTTP_{resp.status_code}",
-                message=f"HTTP error from SaldeoSMART: {text[:500]}",
+                code=f"HTTP_{http_status}",
+                message=f"HTTP {http_status} from SaldeoSMART: {snippet}",
                 raw_xml=text,
+                http_status=http_status,
             )
 
-        try:
-            root = ET.fromstring(text)
-        except ET.ParseError as e:
+        # 3. 2xx but body wasn't valid XML.
+        if root is None:
             raise SaldeoError(
                 code="PARSE_ERROR",
-                message=f"Could not parse XML response: {e}",
+                message=f"Could not parse XML response: {parse_error}",
                 raw_xml=text,
-            ) from e
-
-        # Standard error envelope: <RESPONSE><STATUS>ERROR</STATUS><ERROR>...
-        status_el = root.find("STATUS")
-        if status_el is not None and (status_el.text or "").strip().upper() == "ERROR":
-            err_el = root.find("ERROR")
-            code = ""
-            msg = ""
-            if err_el is not None:
-                code_el = err_el.find("CODE")
-                msg_el = err_el.find("MESSAGE")
-                code = (code_el.text or "") if code_el is not None else ""
-                msg = (msg_el.text or "") if msg_el is not None else ""
-            raise SaldeoError(code=code or "UNKNOWN", message=msg or "Unknown error",
-                              raw_xml=text)
+            ) from parse_error
 
         return root
 
@@ -234,3 +292,74 @@ def el_int(parent: ET.Element, tag: str) -> int | None:
         return int(raw)
     except ValueError:
         return None
+
+
+# Per-item status fields used across batch endpoints. Field name varies:
+#   document/update      → UPDATE_STATUS, values UPDATED|NOT_VALID|ERROR
+#   document/import      → STATUS,        values VALID|NOT_VALID
+#   personnel/document/* → STATUS,        values CREATED|CONFLICT|NOT_VALID
+#   employee/add         → STATUS,        values CREATED|CONFLICT|NOT_VALID
+# Anything not in the "happy" set is treated as a failure.
+_ITEM_STATUS_TAGS = ("UPDATE_STATUS", "STATUS")
+_ITEM_OK_VALUES = frozenset({"UPDATED", "VALID", "CREATED", "OK"})
+
+# Element tags used to identify the item itself (for surfacing context in errors).
+_ITEM_ID_TAGS = (
+    "DOCUMENT_ID", "INVOICE_ID", "CONTRACTOR_ID", "EMPLOYEE_ID",
+    "PERSONNEL_DOCUMENT_ID", "ASSURANCE_PROGRAM_ID",
+)
+
+
+def iter_item_errors(root: ET.Element) -> list[ItemError]:
+    """
+    Walk a successful (STATUS=OK) RESPONSE and collect per-item failures.
+
+    SaldeoSMART batch endpoints return STATUS=OK at the top level even when
+    individual items fail. Callers that mutate state (document/update,
+    document/import, contractor/merge, employee/add, …) should run this and
+    decide whether to surface those errors as warnings or treat them as fatal.
+
+    Returns an empty list if everything succeeded.
+    """
+    errors: list[ItemError] = []
+    for item in root.iter():
+        status_value: str | None = None
+        for tag in _ITEM_STATUS_TAGS:
+            child = item.find(tag)
+            if child is not None and child.text:
+                status_value = child.text.strip().upper()
+                break
+        if status_value is None or status_value in _ITEM_OK_VALUES:
+            continue
+
+        item_id = next(
+            (el_text(item, t) for t in _ITEM_ID_TAGS if item.find(t) is not None),
+            None,
+        )
+
+        # Validation errors: nested <ERRORS><ERROR><PATH/><MESSAGE/></ERROR></ERRORS>
+        nested = item.find("ERRORS")
+        added = False
+        if nested is not None:
+            for err in nested.findall("ERROR"):
+                errors.append(ItemError(
+                    status=status_value,
+                    path=(el_text(err, "PATH") or "").strip(),
+                    message=(el_text(err, "MESSAGE") or "").strip(),
+                    item_id=item_id,
+                ))
+                added = True
+
+        # Operational errors: sibling <ERROR_MESSAGE/> or <STATUS_MESSAGE/>
+        if not added:
+            msg = (
+                (el_text(item, "ERROR_MESSAGE") or "").strip()
+                or (el_text(item, "STATUS_MESSAGE") or "").strip()
+            )
+            errors.append(ItemError(
+                status=status_value,
+                path="",
+                message=msg or f"item failed with status {status_value}",
+                item_id=item_id,
+            ))
+    return errors
