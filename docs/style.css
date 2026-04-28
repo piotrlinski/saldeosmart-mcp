@@ -1,0 +1,399 @@
+/* SaldeoSMART MCP — documentation styles.
+   Self-contained, no external fonts or libs. Layout:
+     - left: sticky navigation
+     - right: scrolling content
+   On narrow screens the nav stacks above the content. */
+
+:root {
+  --c-bg: #0f172a;
+  --c-panel: #ffffff;
+  --c-text: #1e293b;
+  --c-muted: #64748b;
+  --c-border: #e2e8f0;
+  --c-link: #2563eb;
+  --c-link-hover: #1d4ed8;
+  --c-accent: #6366f1;
+  --c-accent-soft: #eef2ff;
+  --c-success: #16a34a;
+  --c-warn: #d97706;
+  --c-danger: #dc2626;
+  --c-code-bg: #f1f5f9;
+  --c-code-block-bg: #0f172a;
+  --c-code-block-fg: #e2e8f0;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --radius: 6px;
+  --gap: 1rem;
+  --content-max: 800px;
+  --nav-width: 260px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--c-text);
+  background: #f8fafc;
+}
+
+body {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ---- Header strip ----------------------------------------------------- */
+
+header.brand {
+  background: var(--c-bg);
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+header.brand .title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+header.brand .subtitle {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+header.brand a {
+  color: white;
+  text-decoration: none;
+}
+
+/* ---- Sidebar navigation ----------------------------------------------- */
+
+aside.sidebar {
+  width: var(--nav-width);
+  background: var(--c-panel);
+  border-right: 1px solid var(--c-border);
+  padding: 2rem 1.25rem 4rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+aside.sidebar .logo {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+  color: var(--c-bg);
+}
+
+aside.sidebar .tagline {
+  font-size: 0.85rem;
+  color: var(--c-muted);
+  margin-bottom: 1.5rem;
+}
+
+aside.sidebar nav {
+  font-size: 0.9rem;
+}
+
+aside.sidebar nav h3 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--c-muted);
+  margin: 1.25rem 0 0.4rem;
+  font-weight: 600;
+}
+
+aside.sidebar nav a {
+  display: block;
+  color: var(--c-text);
+  text-decoration: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  margin-bottom: 0.1rem;
+}
+
+aside.sidebar nav a:hover,
+aside.sidebar nav a.active {
+  background: var(--c-accent-soft);
+  color: var(--c-accent);
+}
+
+/* ---- Main content ----------------------------------------------------- */
+
+main {
+  flex: 1;
+  padding: 2.5rem 3rem 5rem;
+  max-width: calc(var(--content-max) + 6rem);
+}
+
+main > section {
+  margin-bottom: 3.5rem;
+  scroll-margin-top: 1.5rem;
+}
+
+main h1 {
+  font-size: 2rem;
+  margin-top: 0;
+  margin-bottom: 0.25rem;
+  color: var(--c-bg);
+  letter-spacing: -0.01em;
+}
+
+main h1 + .lead {
+  font-size: 1.1rem;
+  color: var(--c-muted);
+  margin-bottom: 2rem;
+  max-width: 60ch;
+}
+
+main h2 {
+  font-size: 1.5rem;
+  margin: 2.5rem 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--c-border);
+  color: var(--c-bg);
+  letter-spacing: -0.005em;
+}
+
+main h3 {
+  font-size: 1.15rem;
+  margin: 1.75rem 0 0.5rem;
+  color: var(--c-bg);
+}
+
+main h4 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--c-muted);
+  margin: 1.25rem 0 0.4rem;
+}
+
+main p {
+  margin: 0.6rem 0;
+}
+
+main a {
+  color: var(--c-link);
+  text-decoration: none;
+}
+
+main a:hover {
+  color: var(--c-link-hover);
+  text-decoration: underline;
+}
+
+ul, ol {
+  padding-left: 1.4em;
+}
+
+li {
+  margin: 0.2rem 0;
+}
+
+/* ---- Code ------------------------------------------------------------- */
+
+code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+               Consolas, "Liberation Mono", monospace;
+  font-size: 0.875em;
+  background: var(--c-code-bg);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  color: #be185d;
+}
+
+pre {
+  background: var(--c-code-block-bg);
+  color: var(--c-code-block-fg);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  margin: 0.75rem 0;
+  box-shadow: var(--shadow-sm);
+}
+
+pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* ---- Callouts --------------------------------------------------------- */
+
+.callout {
+  border-left: 4px solid var(--c-accent);
+  background: var(--c-accent-soft);
+  padding: 0.85rem 1rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin: 1rem 0;
+  font-size: 0.95rem;
+}
+
+.callout strong { color: var(--c-bg); }
+
+.callout.warning {
+  border-color: var(--c-warn);
+  background: #fff7ed;
+}
+
+.callout.danger {
+  border-color: var(--c-danger);
+  background: #fef2f2;
+}
+
+.callout.success {
+  border-color: var(--c-success);
+  background: #f0fdf4;
+}
+
+/* ---- Tables ----------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.92rem;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--c-border);
+  vertical-align: top;
+}
+
+th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: var(--c-bg);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+tr:hover td {
+  background: #f8fafc;
+}
+
+td code {
+  white-space: nowrap;
+}
+
+/* ---- Tool cards ------------------------------------------------------- */
+
+.tool-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1rem 0 2rem;
+}
+
+.tool-card {
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.tool-card h4 {
+  margin: 0 0 0.25rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--c-bg);
+  font-size: 1rem;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+.tool-card .meta {
+  font-size: 0.8rem;
+  color: var(--c-muted);
+  margin-bottom: 0.5rem;
+}
+
+.tool-card .meta .pill {
+  background: var(--c-code-bg);
+  border-radius: 999px;
+  padding: 0.05rem 0.55rem;
+  margin-right: 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.75rem;
+}
+
+.tool-card .meta .pill.write {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.tool-card .meta .pill.read {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tool-card p {
+  margin: 0.25rem 0 0;
+  font-size: 0.92rem;
+}
+
+/* ---- Diagram ---------------------------------------------------------- */
+
+.diagram {
+  background: var(--c-panel);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.diagram pre {
+  background: transparent;
+  color: var(--c-text);
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+  white-space: pre;
+  box-shadow: none;
+  line-height: 1.4;
+}
+
+/* ---- Footer ----------------------------------------------------------- */
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--c-border);
+  color: var(--c-muted);
+  font-size: 0.85rem;
+}
+
+/* ---- Responsive ------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  body { flex-direction: column; }
+  aside.sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--c-border);
+    padding-bottom: 1rem;
+  }
+  main { padding: 2rem 1.25rem 3rem; }
+}

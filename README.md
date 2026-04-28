@@ -2,6 +2,8 @@
 
 MCP server for [SaldeoSMART](https://www.saldeosmart.pl/) — gives Claude tools to read and (optionally) modify documents, invoices, contractors, dimensions, articles, employees, and personnel documents on your account.
 
+📖 **Full HTML documentation:** see [`docs/`](docs/index.html) — published to GitHub Pages by `.github/workflows/pages.yml` (enable once under **Settings → Pages → Source: GitHub Actions**).
+
 ## What it does
 
 ### Read-only tools
