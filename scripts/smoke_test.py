@@ -44,14 +44,24 @@ load_env_file()  # must precede the saldeosmart_mcp imports — they read env ea
 
 from saldeosmart_mcp.models import (  # noqa: E402
     CompanyList,
+    DocumentIdGroups,
     DocumentList,
     ErrorResponse,
+    InvoiceIdGroups,
 )
 from saldeosmart_mcp.server import (  # noqa: E402
+    get_document_id_list,
+    get_documents_by_id,
+    get_invoice_id_list,
+    get_invoices_by_id,
+    list_bank_statements,
     list_companies,
     list_contractors,
     list_documents,
+    list_employees,
     list_invoices,
+    list_personnel_documents,
+    list_recognized_documents,
     search_documents,
 )
 
@@ -127,6 +137,65 @@ def main() -> int:
 
     print("\n[5] list_invoices")
     report("list_invoices", list_invoices(program_id))
+
+    print("\n[6] list_bank_statements")
+    report("list_bank_statements", list_bank_statements(program_id))
+
+    print("\n[7] list_employees / list_personnel_documents (Personnel module)")
+    report("list_employees", list_employees(program_id))
+    report(
+        "list_personnel_documents[all]",
+        list_personnel_documents(program_id),
+    )
+
+    print("\n[8] 3.0 paginated id-list / listbyid")
+    from datetime import date as _date
+    today = _date.today()
+    doc_groups_result = get_document_id_list(program_id, year=today.year, month=today.month)
+    doc_groups = report(
+        f"get_document_id_list[{today.year}-{today.month}]",
+        doc_groups_result,
+    )
+    if isinstance(doc_groups, DocumentIdGroups):
+        # Pull a small slice of cost invoices to exercise listbyid.
+        sample_ids = doc_groups.invoices_cost[:3]
+        if sample_ids:
+            report(
+                f"get_documents_by_id[invoices_cost x{len(sample_ids)}]",
+                get_documents_by_id(program_id, invoices_cost=sample_ids),
+            )
+        else:
+            print("     (no document IDs in this folder — skipping listbyid)")
+
+    inv_groups_result = get_invoice_id_list(program_id, year=today.year, month=today.month)
+    inv_groups = report(
+        f"get_invoice_id_list[{today.year}-{today.month}]",
+        inv_groups_result,
+    )
+    if isinstance(inv_groups, InvoiceIdGroups):
+        sample_ids = inv_groups.invoices[:3]
+        if sample_ids:
+            report(
+                f"get_invoices_by_id[invoices x{len(sample_ids)}]",
+                get_invoices_by_id(program_id, invoices=sample_ids),
+            )
+        else:
+            print("     (no invoice IDs in this folder — skipping listbyid)")
+
+    print("\n[9] list_recognized_documents (needs OCR origin IDs from a prior recognize call)")
+    print("     (skipping live call — would need fresh document.recognize OCR IDs)")
+    # Sanity check the empty-criteria path returns ErrorResponse, not a network call.
+    empty_check = list_recognized_documents(program_id, ocr_origin_ids=[])
+    if isinstance(empty_check, ErrorResponse) and empty_check.error == "MISSING_CRITERIA":
+        results.append(
+            ("list_recognized_documents[empty-validation]", True, "ok — rejected as expected")
+        )
+        print(f"  {OK} list_recognized_documents[empty-validation]: ok — rejected as expected")
+    else:
+        results.append(
+            ("list_recognized_documents[empty-validation]", False, "did not reject empty input")
+        )
+        print(f"  {FAIL} list_recognized_documents[empty-validation]: did not reject empty input")
 
     return _summarize()
 

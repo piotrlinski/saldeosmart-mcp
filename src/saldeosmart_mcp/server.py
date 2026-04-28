@@ -33,16 +33,24 @@ from pydantic import ValidationError
 
 from .client import SaldeoClient, SaldeoConfig, SaldeoError
 from .models import (
+    BankStatement,
+    BankStatementList,
     Company,
     CompanyList,
     Contractor,
     ContractorList,
     Document,
+    DocumentIdGroups,
     DocumentList,
     DocumentPolicy,
+    Employee,
+    EmployeeList,
     ErrorResponse,
+    InvoiceIdGroups,
     InvoiceList,
     ItemErrorPayload,
+    PersonnelDocument,
+    PersonnelDocumentList,
 )
 
 logger = logging.getLogger(__name__)
@@ -253,6 +261,227 @@ def list_invoices(company_program_id: str) -> InvoiceList | ErrorResponse:
     return InvoiceList(invoices=invoices, count=len(invoices))
 
 
+@mcp.tool
+@_saldeo_call
+def list_bank_statements(company_program_id: str) -> BankStatementList | ErrorResponse:
+    """List bank statements (with operations, dimensions, settlements).
+
+    Args:
+        company_program_id: External program ID of the company.
+
+    Returns:
+        BankStatementList with one entry per statement and a flat list of
+        bank operations under each statement (account number, amount, type,
+        debit/credit, currency, etc.). Saldeo returns rich nested data
+        (matched contractors, dimensions, settled invoices) — only the
+        headline fields are surfaced; raw XML access is via the lower-level
+        client if you need everything.
+    """
+    root = _client().get(
+        "/api/xml/2.18/bank_statement/list",
+        query={"company_program_id": company_program_id},
+    )
+    statements = _parse_collection(
+        root, "BANK_STATEMENTS", "BANK_STATEMENT", BankStatement.from_xml
+    )
+    return BankStatementList(statements=statements, count=len(statements))
+
+
+@mcp.tool
+@_saldeo_call
+def list_employees(company_program_id: str) -> EmployeeList | ErrorResponse:
+    """List employees registered in SaldeoSMART Personnel for a company.
+
+    Requires the SaldeoSMART Personnel module to be active on the account.
+    Returns headline fields (id, name, PESEL, NIP, email, address, hire date,
+    inactive flag); contracts and full payroll detail are not surfaced here.
+    """
+    root = _client().get(
+        "/api/xml/2.20/employee/list",
+        query={"company_program_id": company_program_id},
+    )
+    employees = _parse_collection(root, "EMPLOYEES", "EMPLOYEE", Employee.from_xml)
+    return EmployeeList(employees=employees, count=len(employees))
+
+
+@mcp.tool
+@_saldeo_call
+def list_personnel_documents(
+    company_program_id: str,
+    employee_id: int | None = None,
+    year: int | None = None,
+    month: int | None = None,
+    only_remaining: bool = False,
+) -> PersonnelDocumentList | ErrorResponse:
+    """List personnel documents (HR files: contracts, declarations, etc.).
+
+    Args:
+        company_program_id: External program ID of the company.
+        employee_id: Optional. Restrict to one employee.
+        year, month: Optional folder filter (e.g. year=2024, month=3).
+        only_remaining: If True, list documents not yet sent to the accounting
+            program. Mutually exclusive with `employee_id`.
+
+    Saldeo's spec requires exactly one of {ALL_PERSONNEL_DOCUMENTS,
+    ALL_REMAINING_DOCUMENTS, EMPLOYEE_ID}; this wrapper picks the right one
+    based on which arguments you set.
+    """
+    xml = _build_personnel_list_xml(
+        employee_id=employee_id,
+        year=year,
+        month=month,
+        only_remaining=only_remaining,
+    )
+    root = _client().post_command(
+        "/api/xml/2.20/personnel_document/list",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    docs = _parse_collection(
+        root, "PERSONNEL_DOCUMENTS", "PERSONNEL_DOCUMENT", PersonnelDocument.from_xml
+    )
+    return PersonnelDocumentList(personnel_documents=docs, count=len(docs))
+
+
+@mcp.tool
+@_saldeo_call
+def get_document_id_list(
+    company_program_id: str,
+    year: int,
+    month: int,
+) -> DocumentIdGroups | ErrorResponse:
+    """List document IDs in one folder, grouped by kind (SS22).
+
+    A 3.0 endpoint. Use this first to discover IDs, then `get_documents_by_id`
+    to fetch full document details. Saldeo splits results into eight buckets
+    (contracts, cost invoices, sale invoices, internal/material invoices,
+    orders, writings, other). Empty buckets come back empty.
+    """
+    xml = _build_folder_xml(year, month)
+    root = _client().post_command(
+        "/api/xml/3.0/document/getidlist",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return DocumentIdGroups.from_xml(root)
+
+
+@mcp.tool
+@_saldeo_call
+def get_documents_by_id(
+    company_program_id: str,
+    contracts: list[int] | None = None,
+    invoices_cost: list[int] | None = None,
+    invoices_internal: list[int] | None = None,
+    invoices_material: list[int] | None = None,
+    invoices_sale: list[int] | None = None,
+    orders: list[int] | None = None,
+    writings: list[int] | None = None,
+    other_documents: list[int] | None = None,
+) -> DocumentList | ErrorResponse:
+    """Fetch documents by ID, grouped by kind (SS23).
+
+    Pass IDs in the buckets returned by `get_document_id_list`. Empty buckets
+    can be omitted. Returns a flat ``DocumentList`` of whatever the server
+    sent back (Saldeo returns the full document records, not just the IDs).
+    """
+    xml = _build_document_id_groups_xml(
+        contracts=contracts,
+        invoices_cost=invoices_cost,
+        invoices_internal=invoices_internal,
+        invoices_material=invoices_material,
+        invoices_sale=invoices_sale,
+        orders=orders,
+        writings=writings,
+        other_documents=other_documents,
+    )
+    root = _client().post_command(
+        "/api/xml/3.0/document/listbyid",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    documents = _parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
+@mcp.tool
+@_saldeo_call
+def get_invoice_id_list(
+    company_program_id: str,
+    year: int,
+    month: int,
+) -> InvoiceIdGroups | ErrorResponse:
+    """List invoice IDs in one folder, grouped by kind (SSK07).
+
+    Buckets: invoices, corrective_invoices, pre_invoices, corrective_pre_invoices.
+    Pair with `get_invoices_by_id` to fetch the records.
+    """
+    xml = _build_folder_xml(year, month)
+    root = _client().post_command(
+        "/api/xml/3.0/invoice/getidlist",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return InvoiceIdGroups.from_xml(root)
+
+
+@mcp.tool
+@_saldeo_call
+def get_invoices_by_id(
+    company_program_id: str,
+    invoices: list[int] | None = None,
+    corrective_invoices: list[int] | None = None,
+    pre_invoices: list[int] | None = None,
+    corrective_pre_invoices: list[int] | None = None,
+) -> InvoiceList | ErrorResponse:
+    """Fetch invoices by ID, grouped by kind (SSK08)."""
+    xml = _build_invoice_id_groups_xml(
+        invoices=invoices,
+        corrective_invoices=corrective_invoices,
+        pre_invoices=pre_invoices,
+        corrective_pre_invoices=corrective_pre_invoices,
+    )
+    root = _client().post_command(
+        "/api/xml/3.0/invoice/listbyid",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    invoices_out = _parse_collection(root, "INVOICES", "INVOICE", Document.from_xml)
+    return InvoiceList(invoices=invoices_out, count=len(invoices_out))
+
+
+@mcp.tool
+@_saldeo_call
+def list_recognized_documents(
+    company_program_id: str,
+    ocr_origin_ids: list[int],
+) -> DocumentList | ErrorResponse:
+    """Fetch the OCR-processed document data for a set of OCR origin IDs (SS08).
+
+    Args:
+        company_program_id: External program ID of the company.
+        ocr_origin_ids: IDs returned by a prior ``document.recognize`` call.
+            Saldeo requires at least one — there's no "list everything" mode.
+
+    Returns the same ``DocumentList`` shape as ``list_documents``. The richer
+    nested data (articles, OCR origins, dimensions, KSeF) is dropped to keep
+    the response Claude-friendly; reach for the lower-level client if needed.
+    """
+    if not ocr_origin_ids:
+        return ErrorResponse(
+            error="MISSING_CRITERIA",
+            message="Provide at least one OCR origin ID. Get them from document.recognize.",
+        )
+    xml = _build_ocr_id_list_xml(ocr_origin_ids)
+    root = _client().post_command(
+        "/api/xml/2.18/document/list_recognized",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    documents = _parse_collection(root, "DOCUMENTS", "DOCUMENT", Document.from_xml)
+    return DocumentList(documents=documents, count=len(documents))
+
+
 # ---- Search XML builder ---------------------------------------------------------
 
 
@@ -283,6 +512,101 @@ def _build_search_xml(
     if guid:
         ET.SubElement(fields, "GUID").text = guid
     return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
+def _build_folder_xml(year: int, month: int) -> str:
+    """Body for the 3.0 *.getidlist operations: <ROOT><FOLDER><YEAR/><MONTH/></FOLDER></ROOT>."""
+    root = ET.Element("ROOT")
+    folder = ET.SubElement(root, "FOLDER")
+    ET.SubElement(folder, "YEAR").text = str(year)
+    ET.SubElement(folder, "MONTH").text = str(month)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _append_id_group(root: ET.Element, container_tag: str, item_tag: str,
+                     ids: list[int] | None) -> None:
+    """Append <CONTAINER><ITEM>id</ITEM>...</CONTAINER> if `ids` is non-empty."""
+    if not ids:
+        return
+    container = ET.SubElement(root, container_tag)
+    for value in ids:
+        ET.SubElement(container, item_tag).text = str(value)
+
+
+def _build_document_id_groups_xml(
+    *,
+    contracts: list[int] | None,
+    invoices_cost: list[int] | None,
+    invoices_internal: list[int] | None,
+    invoices_material: list[int] | None,
+    invoices_sale: list[int] | None,
+    orders: list[int] | None,
+    writings: list[int] | None,
+    other_documents: list[int] | None,
+) -> str:
+    root = ET.Element("ROOT")
+    _append_id_group(root, "CONTRACTS", "CONTRACT", contracts)
+    _append_id_group(root, "INVOICES_COST", "INVOICE_COST", invoices_cost)
+    _append_id_group(root, "INVOICES_INTERNAL", "INVOICE_INTERNAL", invoices_internal)
+    _append_id_group(root, "INVOICES_MATERIAL", "INVOICE_MATERIAL", invoices_material)
+    _append_id_group(root, "INVOICES_SALE", "INVOICE_SALE", invoices_sale)
+    _append_id_group(root, "ORDERS", "ORDER", orders)
+    _append_id_group(root, "WRITINGS", "WRITING", writings)
+    _append_id_group(root, "OTHER_DOCUMENTS", "OTHER_DOCUMENT", other_documents)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_invoice_id_groups_xml(
+    *,
+    invoices: list[int] | None,
+    corrective_invoices: list[int] | None,
+    pre_invoices: list[int] | None,
+    corrective_pre_invoices: list[int] | None,
+) -> str:
+    root = ET.Element("ROOT")
+    _append_id_group(root, "INVOICES", "INVOICE_ID", invoices)
+    _append_id_group(root, "CORRECTIVE_INVOICES", "CORRECTIVE_INVOICE_ID", corrective_invoices)
+    _append_id_group(root, "PRE_INVOICES", "PRE_INVOICE_ID", pre_invoices)
+    _append_id_group(
+        root, "CORRECTIVE_PRE_INVOICES", "CORRECTIVE_PRE_INVOICE_ID", corrective_pre_invoices
+    )
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_ocr_id_list_xml(ocr_origin_ids: list[int]) -> str:
+    """Body for document.list_recognized.
+
+    Shape: ``<ROOT><OCR_ID_LIST><OCR_ORIGIN_ID/>...</OCR_ID_LIST></ROOT>``.
+    """
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "OCR_ID_LIST")
+    for ocr_id in ocr_origin_ids:
+        ET.SubElement(container, "OCR_ORIGIN_ID").text = str(ocr_id)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_personnel_list_xml(
+    *,
+    employee_id: int | None,
+    year: int | None,
+    month: int | None,
+    only_remaining: bool,
+) -> str:
+    """Body for personnel_document.list. Spec: exactly one of
+    {ALL_PERSONNEL_DOCUMENTS, ALL_REMAINING_DOCUMENTS, EMPLOYEE_ID}."""
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "PERSONNEL_DOCUMENT")
+    if employee_id is not None:
+        ET.SubElement(container, "EMPLOYEE_ID").text = str(employee_id)
+    elif only_remaining:
+        ET.SubElement(container, "ALL_REMAINING_DOCUMENTS").text = "true"
+    else:
+        ET.SubElement(container, "ALL_PERSONNEL_DOCUMENTS").text = "true"
+    if year is not None:
+        ET.SubElement(container, "YEAR").text = str(year)
+    if month is not None:
+        ET.SubElement(container, "MONTH").text = str(month)
+    return ET.tostring(root, encoding="unicode")
 
 
 # ---- Logging & entrypoint -------------------------------------------------------

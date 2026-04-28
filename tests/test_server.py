@@ -14,7 +14,16 @@ from xml.etree import ElementTree as ET
 import pytest
 
 from saldeosmart_mcp.client import ItemError, SaldeoError
-from saldeosmart_mcp.server import _build_search_xml, _error_payload, _setup_logging
+from saldeosmart_mcp.server import (
+    _build_document_id_groups_xml,
+    _build_folder_xml,
+    _build_invoice_id_groups_xml,
+    _build_ocr_id_list_xml,
+    _build_personnel_list_xml,
+    _build_search_xml,
+    _error_payload,
+    _setup_logging,
+)
 
 
 @pytest.fixture
@@ -250,3 +259,92 @@ def test_build_search_xml_escapes_special_characters():
     # If escaping failed, fromstring would raise.
     root = ET.fromstring(xml)
     assert root.find("FIELDS/NUMBER").text == "A&B<X>"
+
+
+# ---- 3.0 paginated id-list / listbyid builders -----------------------------------
+
+
+def test_build_folder_xml_emits_year_and_month():
+    root = ET.fromstring(_build_folder_xml(year=2024, month=3))
+    assert root.find("FOLDER/YEAR").text == "2024"
+    assert root.find("FOLDER/MONTH").text == "3"
+
+
+def test_build_document_id_groups_xml_omits_empty_buckets():
+    """Empty / None buckets must not appear in the request — Saldeo treats
+    a present-but-empty container as "ask me about that bucket too" which
+    breaks the targeted-fetch semantics ``listbyid`` is built around."""
+    xml = _build_document_id_groups_xml(
+        contracts=[1, 2],
+        invoices_cost=None,
+        invoices_internal=None,
+        invoices_material=None,
+        invoices_sale=[],
+        orders=None,
+        writings=None,
+        other_documents=None,
+    )
+    root = ET.fromstring(xml)
+    assert [e.text for e in root.findall("CONTRACTS/CONTRACT")] == ["1", "2"]
+    assert root.find("INVOICES_COST") is None
+    assert root.find("INVOICES_SALE") is None  # empty list still suppressed
+
+
+def test_build_invoice_id_groups_xml_uses_correct_leaf_tags():
+    xml = _build_invoice_id_groups_xml(
+        invoices=[10],
+        corrective_invoices=[11],
+        pre_invoices=[12],
+        corrective_pre_invoices=[13],
+    )
+    root = ET.fromstring(xml)
+    assert root.find("INVOICES/INVOICE_ID").text == "10"
+    assert root.find("CORRECTIVE_INVOICES/CORRECTIVE_INVOICE_ID").text == "11"
+    assert root.find("PRE_INVOICES/PRE_INVOICE_ID").text == "12"
+    assert root.find(
+        "CORRECTIVE_PRE_INVOICES/CORRECTIVE_PRE_INVOICE_ID"
+    ).text == "13"
+
+
+def test_build_ocr_id_list_xml_emits_one_entry_per_id():
+    xml = _build_ocr_id_list_xml([1, 2, 3])
+    root = ET.fromstring(xml)
+    ids = [e.text for e in root.findall("OCR_ID_LIST/OCR_ORIGIN_ID")]
+    assert ids == ["1", "2", "3"]
+
+
+# ---- personnel_document.list builder ---------------------------------------------
+
+
+def test_build_personnel_list_xml_picks_employee_id_when_set():
+    xml = _build_personnel_list_xml(
+        employee_id=42, year=None, month=None, only_remaining=False
+    )
+    root = ET.fromstring(xml)
+    pd = root.find("PERSONNEL_DOCUMENT")
+    assert pd.find("EMPLOYEE_ID").text == "42"
+    # Must NOT include either of the broad-scope flags — spec says exactly one.
+    assert pd.find("ALL_PERSONNEL_DOCUMENTS") is None
+    assert pd.find("ALL_REMAINING_DOCUMENTS") is None
+
+
+def test_build_personnel_list_xml_picks_remaining_when_requested():
+    xml = _build_personnel_list_xml(
+        employee_id=None, year=None, month=None, only_remaining=True
+    )
+    root = ET.fromstring(xml)
+    pd = root.find("PERSONNEL_DOCUMENT")
+    assert pd.find("ALL_REMAINING_DOCUMENTS").text == "true"
+    assert pd.find("ALL_PERSONNEL_DOCUMENTS") is None
+    assert pd.find("EMPLOYEE_ID") is None
+
+
+def test_build_personnel_list_xml_default_is_all_documents():
+    xml = _build_personnel_list_xml(
+        employee_id=None, year=2024, month=3, only_remaining=False
+    )
+    root = ET.fromstring(xml)
+    pd = root.find("PERSONNEL_DOCUMENT")
+    assert pd.find("ALL_PERSONNEL_DOCUMENTS").text == "true"
+    assert pd.find("YEAR").text == "2024"
+    assert pd.find("MONTH").text == "3"
