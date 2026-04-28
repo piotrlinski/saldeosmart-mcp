@@ -394,6 +394,185 @@ class InvoiceIdGroups(BaseModel):
         )
 
 
+# ---- Write/merge inputs ---------------------------------------------------------
+#
+# Each *Input model mirrors one item in a Saldeo merge/update request body. They
+# stay flat and minimal — Saldeo's full schema has many optional fields, but
+# overloading Claude with 30+ parameters per tool hurts UX. Add fields here
+# only when a concrete use case calls for them.
+
+
+class BankAccountInput(BaseModel):
+    name: str | None = None
+    number: str
+
+
+class ContractorInput(BaseModel):
+    """One contractor for ``contractor.merge``. Spec: SS02."""
+
+    short_name: str
+    full_name: str
+    contractor_program_id: str | None = None
+    contractor_id: int | None = None
+    supplier: bool | None = None
+    customer: bool | None = None
+    vat_number: str | None = None
+    city: str | None = None
+    postcode: str | None = None
+    street: str | None = None
+    country_iso3166a2: str | None = None
+    telephone: str | None = None
+    contact_person: str | None = None
+    description: str | None = None
+    payment_days: int | None = None
+    bank_accounts: list[BankAccountInput] = Field(default_factory=list)
+    emails: list[str] = Field(default_factory=list)
+
+
+class CategoryInput(BaseModel):
+    """One category for ``category.merge`` (SS09)."""
+
+    name: str
+    category_program_id: str | None = None
+    description: str | None = None
+
+
+class PaymentMethodInput(BaseModel):
+    """One payment method for ``payment_method.merge`` (SS11)."""
+
+    name: str
+    payment_method_program_id: str | None = None
+    payment_method_id: int | None = None
+
+
+class RegisterInput(BaseModel):
+    """One register for ``register.merge`` (SS10)."""
+
+    name: str
+    register_program_id: str | None = None
+    register_id: int | None = None
+
+
+class DescriptionInput(BaseModel):
+    """One description for ``description.merge`` (SS14)."""
+
+    value: str
+    program_id: str | None = None
+
+
+class DimensionValueInput(BaseModel):
+    """One value option for an ENUM-type dimension."""
+
+    code: str
+    description: str | None = None
+
+
+class DimensionInput(BaseModel):
+    """One dimension for ``dimension.merge`` (SS12).
+
+    ``type`` controls how the dimension is rendered: ENUM uses the ``values``
+    list as a fixed enumeration; NUM/LONG_NUM/DATE accept free-form values.
+    """
+
+    code: str
+    name: str
+    type: Literal["ENUM", "NUM", "LONG_NUM", "DATE"]
+    values: list[DimensionValueInput] = Field(default_factory=list)
+
+
+class ForeignCodeInput(BaseModel):
+    contractor_short_name: str | None = None
+    contractor_program_id: str | None = None
+    code: str
+
+
+class ArticleInput(BaseModel):
+    """One article for ``article.merge`` (SS21)."""
+
+    name: str
+    article_program_id: str | None = None
+    code: str | None = None
+    unit: str | None = None
+    pkwiu: str | None = None
+    for_documents: bool | None = None
+    for_invoices: bool | None = None
+    foreign_codes: list[ForeignCodeInput] = Field(default_factory=list)
+
+
+class FeeInput(BaseModel):
+    """One fee row for ``fee.merge`` (SSK04). Always nested under a folder."""
+
+    type: str
+    value: str
+    maturity: str  # ISO date YYYY-MM-DD
+    program_id: str | None = None
+    description: str | None = None
+
+
+class DocumentUpdateInput(BaseModel):
+    """One document edit for ``document.update`` (SS17).
+
+    ``document_id`` is required (Saldeo's primary key). Only fields you
+    actually want to change need to be set; unspecified fields are left alone.
+    """
+
+    document_id: int
+    number: str | None = None
+    issue_date: str | None = None
+    sale_date: str | None = None
+    payment_date: str | None = None
+    contractor_program_id: str | None = None
+    bank_account: str | None = None
+    self_learning: bool | None = None
+
+
+class DocumentSyncInput(BaseModel):
+    """One document mapping for ``document.sync`` (SS13).
+
+    Reports the accounting-side number/status back to Saldeo for a document.
+    Either ``saldeo_id`` or (``contractor_program_id`` + ``document_number`` +
+    ``issue_date``) must identify the document.
+    """
+
+    saldeo_id: str | None = None
+    saldeo_guid: str | None = None
+    contractor_program_id: str | None = None
+    document_number: str | None = None
+    issue_date: str | None = None
+    guid: str | None = None
+    description: str | None = None
+    numbering_type: str | None = None
+    account_document_number: str | None = None
+    document_status: Literal["BUFFER", "INTRODUCED", "BOOKED"] | None = None
+
+
+class DocumentDimensionValueInput(BaseModel):
+    code: str
+    value: str | None = None
+
+
+class DocumentDimensionInput(BaseModel):
+    """One ``DOCUMENT_DIMENSION`` row for ``document_dimension.merge`` (SS20)."""
+
+    document_id: int
+    dimensions: list[DocumentDimensionValueInput]
+
+
+class RecognizeOptionInput(BaseModel):
+    """One document for ``document.recognize`` (SS06)."""
+
+    document_id: int
+    split_mode: Literal[
+        "NO_SPLIT",
+        "SPLIT_ONE_SIDED",
+        "SPLIT_TWO_SIDED",
+        "AUTO_ONE_SIDED",
+        "AUTO_TWO_SIDED",
+    ] | None = None
+    no_rotate: bool | None = None
+    overwrite_data: bool | None = None
+
+
 class ItemErrorPayload(BaseModel):
     """Per-item error nested inside a structured SaldeoError response."""
 
@@ -414,3 +593,18 @@ class ErrorResponse(BaseModel):
     message: str
     http_status: int | None = None
     details: list[ItemErrorPayload] = Field(default_factory=list)
+
+
+class MergeResult(BaseModel):
+    """Outcome of a Saldeo merge/update/delete batch.
+
+    Saldeo answers ``STATUS=OK`` at the envelope level even when individual
+    items fail; ``successful`` and ``errors`` summarize what actually got
+    through. ``operation`` echoes the Saldeo operation name (from METAINF)
+    so callers can verify the right endpoint was hit.
+    """
+
+    operation: str | None = None
+    total: int
+    successful: int
+    errors: list[ItemErrorPayload] = Field(default_factory=list)

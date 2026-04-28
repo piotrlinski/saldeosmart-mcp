@@ -31,26 +31,39 @@ from xml.etree import ElementTree as ET
 from fastmcp import FastMCP
 from pydantic import ValidationError
 
-from .client import SaldeoClient, SaldeoConfig, SaldeoError
+from .client import SaldeoClient, SaldeoConfig, SaldeoError, iter_item_errors
 from .models import (
+    ArticleInput,
     BankStatement,
     BankStatementList,
+    CategoryInput,
     Company,
     CompanyList,
     Contractor,
+    ContractorInput,
     ContractorList,
+    DescriptionInput,
+    DimensionInput,
     Document,
+    DocumentDimensionInput,
     DocumentIdGroups,
     DocumentList,
     DocumentPolicy,
+    DocumentSyncInput,
+    DocumentUpdateInput,
     Employee,
     EmployeeList,
     ErrorResponse,
+    FeeInput,
     InvoiceIdGroups,
     InvoiceList,
     ItemErrorPayload,
+    MergeResult,
+    PaymentMethodInput,
     PersonnelDocument,
     PersonnelDocumentList,
+    RecognizeOptionInput,
+    RegisterInput,
 )
 
 logger = logging.getLogger(__name__)
@@ -482,6 +495,298 @@ def list_recognized_documents(
     return DocumentList(documents=documents, count=len(documents))
 
 
+# ---- Write/merge tools ----------------------------------------------------------
+#
+# These tools mutate state in SaldeoSMART. Every call is a real change to the
+# customer's accounting data — Claude should treat them with the same care as
+# write APIs anywhere else (confirm before invoking, prefer bulk over loops).
+#
+# Each tool follows the same pattern: validate the typed input, build the
+# request XML with ElementTree, POST it, then summarize per-item results via
+# `_summarize_merge`. Saldeo answers STATUS=OK at the envelope level even when
+# individual items fail, so the per-item walk is essential.
+
+
+@mcp.tool
+@_saldeo_call
+def merge_contractors(
+    company_program_id: str,
+    contractors: list[ContractorInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update contractors (suppliers/customers) in bulk (SS02).
+
+    Each entry must include short_name and full_name. ``contractor_program_id``
+    is your ERP-side ID; ``contractor_id`` is Saldeo's; either can identify
+    an existing contractor for update. Without one, a new contractor is
+    created. Saldeo returns per-item statuses — fields that failed validation
+    surface in the ``errors`` list.
+    """
+    xml = _build_contractor_merge_xml(contractors)
+    root = _client().post_command(
+        "/api/xml/1.23/contractor/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(contractors))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_categories(
+    company_program_id: str,
+    categories: list[CategoryInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update document categories (SS09)."""
+    xml = _build_simple_merge_xml(
+        container_tag="CATEGORIES",
+        item_tag="CATEGORY",
+        items=categories,
+        field_specs=[
+            ("category_program_id", "CATEGORY_PROGRAM_ID"),
+            ("name", "NAME"),
+            ("description", "DESCRIPTION"),
+        ],
+    )
+    root = _client().post_command(
+        "/api/xml/1.0/category/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(categories))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_payment_methods(
+    company_program_id: str,
+    payment_methods: list[PaymentMethodInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update payment methods (SS11)."""
+    xml = _build_simple_merge_xml(
+        container_tag="PAYMENT_METHODS",
+        item_tag="PAYMENT_METHOD",
+        items=payment_methods,
+        field_specs=[
+            ("payment_method_program_id", "PAYMENT_METHOD_PROGRAM_ID"),
+            ("payment_method_id", "PAYMENT_METHOD_ID"),
+            ("name", "NAME"),
+        ],
+    )
+    root = _client().post_command(
+        "/api/xml/1.0/payment_method/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(payment_methods))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_registers(
+    company_program_id: str,
+    registers: list[RegisterInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update registers (SS10)."""
+    xml = _build_simple_merge_xml(
+        container_tag="REGISTERS",
+        item_tag="REGISTER",
+        items=registers,
+        field_specs=[
+            ("register_program_id", "REGISTER_PROGRAM_ID"),
+            ("register_id", "REGISTER_ID"),
+            ("name", "NAME"),
+        ],
+    )
+    root = _client().post_command(
+        "/api/xml/1.0/register/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(registers))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_descriptions(
+    company_program_id: str,
+    descriptions: list[DescriptionInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update business event descriptions (SS14)."""
+    xml = _build_simple_merge_xml(
+        container_tag="DESCRIPTIONS",
+        item_tag="DESCRIPTION",
+        items=descriptions,
+        field_specs=[
+            ("program_id", "PROGRAM_ID"),
+            ("value", "VALUE"),
+        ],
+    )
+    root = _client().post_command(
+        "/api/xml/1.13/description/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(descriptions))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_dimensions(
+    company_program_id: str,
+    dimensions: list[DimensionInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update accounting dimensions (SS12).
+
+    For ``type=ENUM``, populate ``values`` with the allowed options. For
+    NUM/LONG_NUM/DATE, leave ``values`` empty — they accept free-form input.
+    """
+    xml = _build_dimension_merge_xml(dimensions)
+    root = _client().post_command(
+        "/api/xml/1.12/dimension/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(dimensions))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_articles(
+    company_program_id: str,
+    articles: list[ArticleInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update article catalog (SS21)."""
+    xml = _build_article_merge_xml(articles)
+    root = _client().post_command(
+        "/api/xml/1.14/article/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(articles))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_fees(
+    company_program_id: str,
+    year: int,
+    month: int,
+    fees: list[FeeInput],
+) -> MergeResult | ErrorResponse:
+    """Add or update accounting-firm fees for a given month (SSK04).
+
+    ``maturity`` per fee is the due date (YYYY-MM-DD).
+    """
+    xml = _build_fee_merge_xml(year=year, month=month, fees=fees)
+    root = _client().post_command(
+        "/api/xml/1.13/fee/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(fees))
+
+
+@mcp.tool
+@_saldeo_call
+def merge_document_dimensions(
+    company_program_id: str,
+    documents: list[DocumentDimensionInput],
+) -> MergeResult | ErrorResponse:
+    """Set dimension values on existing documents (SS20).
+
+    Each entry pins one document and the dimension code/value pairs to set.
+    The dimensions referenced must already exist (use ``merge_dimensions``).
+    """
+    xml = _build_document_dimension_xml(documents)
+    root = _client().post_command(
+        "/api/xml/1.13/document_dimension/merge",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(documents))
+
+
+@mcp.tool
+@_saldeo_call
+def update_documents(
+    company_program_id: str,
+    documents: list[DocumentUpdateInput],
+) -> MergeResult | ErrorResponse:
+    """Edit existing documents (SS17).
+
+    Only set the fields you want to change — everything left as ``None`` is
+    preserved on the server side.
+    """
+    xml = _build_document_update_xml(documents)
+    root = _client().post_command(
+        "/api/xml/2.4/document/update",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(documents))
+
+
+@mcp.tool
+@_saldeo_call
+def delete_documents(
+    company_program_id: str,
+    document_ids: list[int],
+) -> MergeResult | ErrorResponse:
+    """Delete documents by Saldeo document_id (SS16).
+
+    ⚠ Destructive. Each ID is removed in Saldeo.
+    """
+    xml = _build_document_delete_xml(document_ids)
+    root = _client().post_command(
+        "/api/xml/1.13/document/delete",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(document_ids))
+
+
+@mcp.tool
+@_saldeo_call
+def recognize_documents(
+    company_program_id: str,
+    documents: list[RecognizeOptionInput],
+) -> MergeResult | ErrorResponse:
+    """Trigger OCR recognition on previously-uploaded documents (SS06).
+
+    Saldeo returns OCR_ORIGIN_IDs you can later pass to
+    ``list_recognized_documents`` once the recognition completes.
+    """
+    xml = _build_recognize_xml(documents)
+    root = _client().post_command(
+        "/api/xml/1.20/document/recognize",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(documents))
+
+
+@mcp.tool
+@_saldeo_call
+def sync_documents(
+    company_program_id: str,
+    syncs: list[DocumentSyncInput],
+) -> MergeResult | ErrorResponse:
+    """Push accounting numbering / status back to Saldeo (SS13).
+
+    Used by ERP integrations to tell Saldeo "we booked this document under
+    register X with number Y" so the Saldeo UI can show the right state.
+    Each entry must identify the document either by ``saldeo_id`` or by the
+    triple (``contractor_program_id``, ``document_number``, ``issue_date``).
+    """
+    xml = _build_document_sync_xml(syncs)
+    root = _client().post_command(
+        "/api/xml/1.13/document/sync",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+    )
+    return _summarize_merge(root, total=len(syncs))
+
+
 # ---- Search XML builder ---------------------------------------------------------
 
 
@@ -582,6 +887,226 @@ def _build_ocr_id_list_xml(ocr_origin_ids: list[int]) -> str:
     container = ET.SubElement(root, "OCR_ID_LIST")
     for ocr_id in ocr_origin_ids:
         ET.SubElement(container, "OCR_ORIGIN_ID").text = str(ocr_id)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _summarize_merge(root: ET.Element, *, total: int) -> MergeResult:
+    """Walk a merge response and produce a MergeResult summary."""
+    metainf = root.find("METAINF")
+    operation = el_text_or_none(metainf, "OPERATION") if metainf is not None else None
+    item_errors = iter_item_errors(root)
+    payloads = [ItemErrorPayload.from_dataclass(e) for e in item_errors]
+    return MergeResult(
+        operation=operation,
+        total=total,
+        successful=max(total - len(payloads), 0),
+        errors=payloads,
+    )
+
+
+def _set_text(parent: ET.Element, tag: str, value: object | None) -> None:
+    """Append <tag>value</tag> if value is not None.
+
+    Booleans are serialized as ``true``/``false`` (Saldeo's convention);
+    ints/strings via ``str(...)``. Empty strings are skipped — Saldeo treats
+    an empty element as "clear this field" which is rarely what you want.
+    """
+    if value is None:
+        return
+    text = ("true" if value else "false") if isinstance(value, bool) else str(value)
+    if text == "":
+        return
+    ET.SubElement(parent, tag).text = text
+
+
+def el_text_or_none(parent: ET.Element | None, tag: str) -> str | None:
+    """Wrap el_text so a None parent is OK (mirrors how `find` may miss METAINF)."""
+    from .client import el_text as _el_text
+    if parent is None:
+        return None
+    return _el_text(parent, tag)
+
+
+def _build_simple_merge_xml(
+    *,
+    container_tag: str,
+    item_tag: str,
+    items: list[Any],
+    field_specs: list[tuple[str, str]],
+) -> str:
+    """Build ``<ROOT><CONTAINER><ITEM><F1/>...</ITEM>...</CONTAINER></ROOT>``.
+
+    ``field_specs`` is a list of (python_attr_name, xml_tag_name) tuples.
+    Used by the ops whose items are flat field maps (category, register,
+    payment_method, description). More structured items (contractor, article,
+    dimension) get hand-rolled builders below.
+    """
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, container_tag)
+    for item in items:
+        item_el = ET.SubElement(container, item_tag)
+        for attr, tag in field_specs:
+            _set_text(item_el, tag, getattr(item, attr, None))
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_contractor_merge_xml(contractors: list[ContractorInput]) -> str:
+    """Hand-rolled builder for contractor.merge (1.23) — has nested
+    BANK_ACCOUNTS and EMAILS lists."""
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "CONTRACTORS")
+    for c in contractors:
+        item = ET.SubElement(container, "CONTRACTOR")
+        _set_text(item, "CONTRACTOR_PROGRAM_ID", c.contractor_program_id)
+        _set_text(item, "CONTRACTOR_ID", c.contractor_id)
+        _set_text(item, "SHORT_NAME", c.short_name)
+        _set_text(item, "FULL_NAME", c.full_name)
+        _set_text(item, "SUPPLIER", c.supplier)
+        _set_text(item, "CUSTOMER", c.customer)
+        _set_text(item, "VAT_NUMBER", c.vat_number)
+        _set_text(item, "CITY", c.city)
+        _set_text(item, "POSTCODE", c.postcode)
+        _set_text(item, "STREET", c.street)
+        _set_text(item, "COUNTRY_ISO3166A2", c.country_iso3166a2)
+        _set_text(item, "TELEPHONE", c.telephone)
+        _set_text(item, "CONTACT_PERSON", c.contact_person)
+        _set_text(item, "DESCRIPTION", c.description)
+        _set_text(item, "PAYMENT_DAYS", c.payment_days)
+        if c.bank_accounts:
+            accounts = ET.SubElement(item, "BANK_ACCOUNTS")
+            for acc in c.bank_accounts:
+                acc_el = ET.SubElement(accounts, "BANK_ACCOUNT")
+                _set_text(acc_el, "NAME", acc.name)
+                _set_text(acc_el, "NUMBER", acc.number)
+        if c.emails:
+            emails = ET.SubElement(item, "EMAILS")
+            for addr in c.emails:
+                _set_text(emails, "EMAIL", addr)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_dimension_merge_xml(dimensions: list[DimensionInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DIMENSIONS")
+    for d in dimensions:
+        item = ET.SubElement(container, "DIMENSION")
+        _set_text(item, "CODE", d.code)
+        _set_text(item, "NAME", d.name)
+        _set_text(item, "TYPE", d.type)
+        if d.values:
+            values = ET.SubElement(item, "VALUES")
+            for v in d.values:
+                v_el = ET.SubElement(values, "VALUE")
+                _set_text(v_el, "CODE", v.code)
+                _set_text(v_el, "DESCRIPTION", v.description)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_article_merge_xml(articles: list[ArticleInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "ARTICLES")
+    for a in articles:
+        item = ET.SubElement(container, "ARTICLE")
+        _set_text(item, "ARTICLE_PROGRAM_ID", a.article_program_id)
+        _set_text(item, "CODE", a.code)
+        _set_text(item, "NAME", a.name)
+        _set_text(item, "UNIT", a.unit)
+        _set_text(item, "PKWIU", a.pkwiu)
+        _set_text(item, "FOR_DOCUMENTS", a.for_documents)
+        _set_text(item, "FOR_INVOICES", a.for_invoices)
+        if a.foreign_codes:
+            codes = ET.SubElement(item, "FOREIGN_CODES")
+            for fc in a.foreign_codes:
+                fc_el = ET.SubElement(codes, "FOREIGN_CODE")
+                _set_text(fc_el, "CONTRACTOR_SHORT_NAME", fc.contractor_short_name)
+                _set_text(fc_el, "CONTRACTOR_PROGRAM_ID", fc.contractor_program_id)
+                _set_text(fc_el, "CODE", fc.code)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_fee_merge_xml(*, year: int, month: int, fees: list[FeeInput]) -> str:
+    root = ET.Element("ROOT")
+    folder = ET.SubElement(root, "FOLDER")
+    _set_text(folder, "YEAR", year)
+    _set_text(folder, "MONTH", month)
+    container = ET.SubElement(root, "FEES")
+    for fee in fees:
+        item = ET.SubElement(container, "FEE")
+        _set_text(item, "PROGRAM_ID", fee.program_id)
+        _set_text(item, "TYPE", fee.type)
+        _set_text(item, "VALUE", fee.value)
+        _set_text(item, "MATURITY", fee.maturity)
+        _set_text(item, "DESCRIPTION", fee.description)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_dimension_xml(items: list[DocumentDimensionInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENT_DIMENSIONS")
+    for d in items:
+        item = ET.SubElement(container, "DOCUMENT_DIMENSION")
+        _set_text(item, "DOCUMENT_ID", d.document_id)
+        dims = ET.SubElement(item, "DIMENSIONS")
+        for dv in d.dimensions:
+            dv_el = ET.SubElement(dims, "DIMENSION")
+            _set_text(dv_el, "CODE", dv.code)
+            _set_text(dv_el, "VALUE", dv.value)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_update_xml(documents: list[DocumentUpdateInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENTS")
+    for d in documents:
+        item = ET.SubElement(container, "DOCUMENT")
+        _set_text(item, "DOCUMENT_ID", d.document_id)
+        _set_text(item, "NUMBER", d.number)
+        _set_text(item, "ISSUE_DATE", d.issue_date)
+        _set_text(item, "SALE_DATE", d.sale_date)
+        _set_text(item, "PAYMENT_DATE", d.payment_date)
+        if d.contractor_program_id is not None:
+            contractor = ET.SubElement(item, "CONTRACTOR")
+            _set_text(contractor, "CONTRACTOR_PROGRAM_ID", d.contractor_program_id)
+        _set_text(item, "BANK_ACCOUNT", d.bank_account)
+        _set_text(item, "SELF_LEARNING", d.self_learning)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_delete_xml(document_ids: list[int]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENT_DELETE_IDS")
+    for doc_id in document_ids:
+        ET.SubElement(container, "DOCUMENT_DELETE_ID").text = str(doc_id)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_recognize_xml(documents: list[RecognizeOptionInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENTS")
+    for d in documents:
+        item = ET.SubElement(container, "DOCUMENT")
+        _set_text(item, "DOCUMENT_ID", d.document_id)
+        _set_text(item, "SPLIT_MODE", d.split_mode)
+        _set_text(item, "NO_ROTATE", d.no_rotate)
+        _set_text(item, "OVERWRITE_DATA", d.overwrite_data)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_sync_xml(syncs: list[DocumentSyncInput]) -> str:
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENT_SYNCS")
+    for s in syncs:
+        item = ET.SubElement(container, "DOCUMENT_SYNC")
+        _set_text(item, "SALDEO_ID", s.saldeo_id)
+        _set_text(item, "SALDEO_GUID", s.saldeo_guid)
+        _set_text(item, "CONTRACTOR_PROGRAM_ID", s.contractor_program_id)
+        _set_text(item, "DOCUMENT_NUMBER", s.document_number)
+        _set_text(item, "ISSUE_DATE", s.issue_date)
+        _set_text(item, "GUID", s.guid)
+        _set_text(item, "DESCRIPTION", s.description)
+        _set_text(item, "NUMBERING_TYPE", s.numbering_type)
+        _set_text(item, "ACCOUNT_DOCUMENT_NUMBER", s.account_document_number)
+        _set_text(item, "DOCUMENT_STATUS", s.document_status)
     return ET.tostring(root, encoding="unicode")
 
 
