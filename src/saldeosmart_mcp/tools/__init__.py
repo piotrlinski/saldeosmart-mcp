@@ -37,7 +37,7 @@ from .catalog import (
     merge_payment_methods,
     merge_registers,
 )
-from .companies import list_companies
+from .companies import list_companies, synchronize_companies
 from .contractors import list_contractors, merge_contractors
 from .dimensions import merge_dimensions
 from .documents import (
@@ -87,6 +87,7 @@ __all__ = [
     "merge_registers",
     "recognize_documents",
     "sync_documents",
+    "synchronize_companies",
     "update_documents",
     # Runtime helpers
     "close_client",

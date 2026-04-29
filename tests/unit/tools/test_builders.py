@@ -25,6 +25,7 @@ from saldeosmart_mcp.models import (
     ArticleInput,
     BankAccountInput,
     CategoryInput,
+    CompanySynchronizeInput,
     ContractorInput,
     DescriptionInput,
     DimensionInput,
@@ -48,6 +49,7 @@ from saldeosmart_mcp.tools.catalog import (
     _build_article_merge_xml,
     _build_fee_merge_xml,
 )
+from saldeosmart_mcp.tools.companies import _build_company_synchronize_xml
 from saldeosmart_mcp.tools.contractors import _build_contractor_merge_xml
 from saldeosmart_mcp.tools.dimensions import _build_dimension_merge_xml
 from saldeosmart_mcp.tools.documents import (
@@ -546,3 +548,24 @@ def test_typed_inputs_sanity_check_register_and_method_and_payment() -> None:
     assert ET.fromstring(desc_xml).find(  # type: ignore[union-attr]
         "DESCRIPTIONS/DESCRIPTION/VALUE"
     ).text == "goods purchase"
+
+
+# ---- _build_company_synchronize_xml ---------------------------------------------
+
+
+def test_company_synchronize_emits_each_pair() -> None:
+    """company.synchronize: <ROOT><COMPANIES><COMPANY><COMPANY_ID/>
+    <COMPANY_PROGRAM_ID/></COMPANY>...</COMPANIES></ROOT>."""
+    xml = _build_company_synchronize_xml(
+        [
+            CompanySynchronizeInput(company_id=42, company_program_id="ERP-001"),
+            CompanySynchronizeInput(company_id=99, company_program_id="ERP-002"),
+        ]
+    )
+    root = ET.fromstring(xml)
+    items = root.findall("COMPANIES/COMPANY")
+    assert len(items) == 2
+    assert items[0].findtext("COMPANY_ID") == "42"
+    assert items[0].findtext("COMPANY_PROGRAM_ID") == "ERP-001"
+    assert items[1].findtext("COMPANY_ID") == "99"
+    assert items[1].findtext("COMPANY_PROGRAM_ID") == "ERP-002"

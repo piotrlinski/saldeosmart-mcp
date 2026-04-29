@@ -23,7 +23,7 @@ from .catalog import (
     RegisterInput,
 )
 from .common import BankAccount, BankAccountInput
-from .companies import Company, CompanyList
+from .companies import Company, CompanyList, CompanySynchronizeInput
 from .contractors import Contractor, ContractorInput, ContractorList
 from .documents import (
     Document,
@@ -50,6 +50,7 @@ __all__ = [
     "CategoryInput",
     "Company",
     "CompanyList",
+    "CompanySynchronizeInput",
     "Contractor",
     "ContractorInput",
     "ContractorList",

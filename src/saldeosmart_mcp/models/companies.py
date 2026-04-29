@@ -1,4 +1,4 @@
-"""Company resource models. Used by ``list_companies``."""
+"""Company resource models. Used by ``list_companies`` / ``synchronize_companies``."""
 
 from __future__ import annotations
 
@@ -42,3 +42,15 @@ class Company(BaseModel):
 class CompanyList(BaseModel):
     companies: list[Company]
     count: int
+
+
+class CompanySynchronizeInput(BaseModel):
+    """One ``COMPANY`` row for ``company.synchronize`` (SS15).
+
+    Both fields are required by the spec: ``company_id`` is Saldeo's
+    internal numeric ID; ``company_program_id`` is your ERP-side identifier
+    (must be unique within the accounting firm).
+    """
+
+    company_id: int
+    company_program_id: str
