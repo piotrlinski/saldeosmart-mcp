@@ -7,14 +7,15 @@ same place it always has.
 
 All the actual logic — tool definitions, request signing, response
 parsing, models — lives in the submodules. ``main()`` does four things:
-parse optional CLI overrides, configure file logging, import ``tools``
-(which registers every tool against the shared ``mcp`` instance), and run
-the FastMCP loop on stdio.
+parse CLI args (with env-var fallbacks), configure file logging, import
+``tools`` (which registers every tool against the shared ``mcp``
+instance), and run the FastMCP loop on stdio.
 
-Credentials can be supplied via environment variables (``SALDEO_USERNAME``,
-``SALDEO_API_TOKEN``, ``SALDEO_BASE_URL``) or the equivalent CLI flags
-(``--username``, ``--api-token``, ``--base-url``). CLI flags win when both
-are set — useful for MCP-client launch configs that prefer args to env.
+Credentials can be supplied two ways and the precedence is straightforward:
+each argparse flag falls back to its corresponding ``SALDEO_*`` env var,
+so an explicit ``--username`` wins, an unset flag picks up
+``$SALDEO_USERNAME``, and if neither is set the config validation
+surfaces a "missing credentials" error.
 """
 
 from __future__ import annotations
@@ -23,12 +24,12 @@ import argparse
 import logging
 import os
 
-# Importing this module is what triggers @mcp.tool registration. Keep the
-# import here (not at function call time) so the tools are discoverable
-# even from `python -c "from saldeosmart_mcp.tools import mcp; ..."`.
-from . import tools as _tools  # noqa: F401  — side-effect import
+from pydantic import SecretStr, ValidationError
+
+from . import tools as _tools  # noqa: F401  — side-effect import (registers @mcp.tool)
+from .config import DEFAULT_BASE_URL, SaldeoConfig
 from .logging import setup_logging
-from .tools._runtime import close_client, get_client, mcp
+from .tools._runtime import close_client, init_client, mcp
 
 logger = logging.getLogger(__name__)
 
@@ -41,18 +42,26 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Speaks MCP over stdio; works with any MCP-aware client."
         ),
     )
+    # default=os.environ.get(...) makes each flag fall back to its env var
+    # without argparse leaking the value via --help (defaults are not shown
+    # unless ArgumentDefaultsHelpFormatter is used, which we deliberately don't).
     parser.add_argument(
         "--username",
-        help="SaldeoSMART username (overrides $SALDEO_USERNAME).",
+        default=os.environ.get("SALDEO_USERNAME"),
+        help="SaldeoSMART username. Falls back to $SALDEO_USERNAME.",
     )
     parser.add_argument(
         "--api-token",
-        help="SaldeoSMART API token (overrides $SALDEO_API_TOKEN).",
+        default=os.environ.get("SALDEO_API_TOKEN"),
+        help="SaldeoSMART API token. Falls back to $SALDEO_API_TOKEN.",
     )
     parser.add_argument(
         "--base-url",
-        help="SaldeoSMART base URL (overrides $SALDEO_BASE_URL). "
-        "Default: https://saldeo.brainshare.pl",
+        default=os.environ.get("SALDEO_BASE_URL", DEFAULT_BASE_URL),
+        help=(
+            "SaldeoSMART base URL. Falls back to $SALDEO_BASE_URL, then "
+            f"to {DEFAULT_BASE_URL}."
+        ),
     )
     return parser
 
@@ -60,14 +69,6 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     """Console-script entrypoint."""
     args = _build_arg_parser().parse_args(argv)
-    # CLI flags win over env vars by overwriting the env entry before
-    # SaldeoConfig is constructed. Pydantic-settings reads from os.environ.
-    if args.username:
-        os.environ["SALDEO_USERNAME"] = args.username
-    if args.api_token:
-        os.environ["SALDEO_API_TOKEN"] = args.api_token
-    if args.base_url:
-        os.environ["SALDEO_BASE_URL"] = args.base_url
 
     log_file = setup_logging()
     logger.info("SaldeoSMART MCP server starting; logs at %s", log_file)
@@ -75,10 +76,21 @@ def main(argv: list[str] | None = None) -> None:
     # error mid-conversation on the first tool call. Warms the shared client
     # too, so the first tool call doesn't pay the connection-pool setup cost.
     try:
-        get_client()
-    except RuntimeError as e:
-        logger.error("Startup aborted: %s", e)
-        raise
+        config = SaldeoConfig(
+            username=args.username,
+            api_token=SecretStr(args.api_token) if args.api_token else None,  # type: ignore[arg-type]
+            base_url=args.base_url,
+        )
+    except ValidationError as e:
+        missing = ", ".join(f"--{str(err['loc'][0]).replace('_', '-')}" for err in e.errors())
+        logger.error("Startup aborted: missing credentials (%s)", missing)
+        raise RuntimeError(
+            f"Missing SaldeoSMART credentials ({missing}). Pass them as "
+            f"CLI flags or set the corresponding SALDEO_* env vars. The API "
+            f"token is generated in SaldeoSMART under Settings → API."
+        ) from e
+    init_client(config)
+
     try:
         mcp.run()  # stdio transport — what MCP clients expect
     finally:
