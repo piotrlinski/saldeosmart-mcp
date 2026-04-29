@@ -63,7 +63,7 @@ INVOICE_LIST_EXAMPLE = """
 """
 
 
-def test_invoice_list_amounts_populate_from_sum_and_vat_registries():
+def test_invoice_list_amounts_populate_from_sum_and_vat_registries() -> None:
     doc = Document.from_xml(ET.fromstring(INVOICE_LIST_EXAMPLE))
     assert doc.value_gross == "184.50"
     assert doc.value_net == "150.00"
@@ -71,18 +71,18 @@ def test_invoice_list_amounts_populate_from_sum_and_vat_registries():
     assert doc.currency == "PLN"
 
 
-def test_invoice_list_uses_invoice_id_as_document_id():
+def test_invoice_list_uses_invoice_id_as_document_id() -> None:
     doc = Document.from_xml(ET.fromstring(INVOICE_LIST_EXAMPLE))
     assert doc.document_id == 64
     assert doc.number == "1/12/2015"
 
 
-def test_invoice_list_payment_date_falls_back_to_payment_due_date():
+def test_invoice_list_payment_date_falls_back_to_payment_due_date() -> None:
     doc = Document.from_xml(ET.fromstring(INVOICE_LIST_EXAMPLE))
     assert doc.payment_due_date == "2016-01-15"
 
 
-def test_invoice_list_items_parsed_from_items_container():
+def test_invoice_list_items_parsed_from_items_container() -> None:
     doc = Document.from_xml(ET.fromstring(INVOICE_LIST_EXAMPLE))
     assert len(doc.items) == 2
     first, second = doc.items
@@ -95,7 +95,7 @@ def test_invoice_list_items_parsed_from_items_container():
     assert second.value_net == "50"
 
 
-def test_invoice_list_source_falls_back_to_source_when_url_absent():
+def test_invoice_list_source_falls_back_to_source_when_url_absent() -> None:
     doc = Document.from_xml(ET.fromstring(INVOICE_LIST_EXAMPLE))
     assert doc.source_url == "/docs/1/122015-fakt/faktura-1-12-2015.pdf"
 
@@ -134,7 +134,7 @@ DOCUMENT_LIST_EXAMPLE = """
 """
 
 
-def test_document_list_aggregates_value_net_and_vat_across_registries():
+def test_document_list_aggregates_value_net_and_vat_across_registries() -> None:
     doc = Document.from_xml(ET.fromstring(DOCUMENT_LIST_EXAMPLE))
     assert doc.value_gross == "1230.00"
     assert doc.value_net == "1000.00"
@@ -142,7 +142,7 @@ def test_document_list_aggregates_value_net_and_vat_across_registries():
     assert doc.currency == "PLN"
 
 
-def test_document_list_items_parsed_from_document_items_container():
+def test_document_list_items_parsed_from_document_items_container() -> None:
     doc = Document.from_xml(ET.fromstring(DOCUMENT_LIST_EXAMPLE))
     assert len(doc.items) == 1
     item = doc.items[0]
@@ -154,7 +154,7 @@ def test_document_list_items_parsed_from_document_items_container():
     assert item.vat_rate == "23"
 
 
-def test_document_list_prefers_source_url_when_present():
+def test_document_list_prefers_source_url_when_present() -> None:
     doc = Document.from_xml(ET.fromstring(DOCUMENT_LIST_EXAMPLE))
     assert doc.source_url == "https://saldeo/example/source"
     assert doc.is_mpp is True
@@ -163,13 +163,13 @@ def test_document_list_prefers_source_url_when_present():
 # ---- edge cases ------------------------------------------------------------------
 
 
-def test_currency_falls_back_from_iso4217_to_legacy_currency():
+def test_currency_falls_back_from_iso4217_to_legacy_currency() -> None:
     xml = "<DOCUMENT><DOCUMENT_ID>1</DOCUMENT_ID><CURRENCY>EUR</CURRENCY></DOCUMENT>"
     doc = Document.from_xml(ET.fromstring(xml))
     assert doc.currency == "EUR"
 
 
-def test_missing_vat_registries_yields_none_for_value_net_and_vat():
+def test_missing_vat_registries_yields_none_for_value_net_and_vat() -> None:
     xml = "<DOCUMENT><DOCUMENT_ID>1</DOCUMENT_ID><SUM>99.00</SUM></DOCUMENT>"
     doc = Document.from_xml(ET.fromstring(xml))
     assert doc.value_gross == "99.00"
@@ -177,7 +177,7 @@ def test_missing_vat_registries_yields_none_for_value_net_and_vat():
     assert doc.value_vat is None
 
 
-def test_sum_vat_registries_skips_unparseable_entries():
+def test_sum_vat_registries_skips_unparseable_entries() -> None:
     xml = """
     <X>
       <VAT_REGISTRIES>
@@ -190,7 +190,7 @@ def test_sum_vat_registries_skips_unparseable_entries():
     assert _sum_vat_registries(ET.fromstring(xml), "NETTO") == "15.50"
 
 
-def test_empty_document_does_not_crash():
+def test_empty_document_does_not_crash() -> None:
     doc = Document.from_xml(ET.fromstring("<DOCUMENT/>"))
     assert doc.document_id is None
     assert doc.value_net is None
@@ -219,14 +219,14 @@ CONTRACTOR_LIST_EXAMPLE = """
 """
 
 
-def test_contractor_reads_street_and_postcode_not_address():
+def test_contractor_reads_street_and_postcode_not_address() -> None:
     c = Contractor.from_xml(ET.fromstring(CONTRACTOR_LIST_EXAMPLE))
     assert c.address == "ulica Testowa 1"
     assert c.postal_code == "30-072"
     assert c.city == "Krakow"
 
 
-def test_contractor_legacy_address_postal_code_still_parsed():
+def test_contractor_legacy_address_postal_code_still_parsed() -> None:
     """If Saldeo ever ships the alternative spellings, fall back to them."""
     xml = (
         "<CONTRACTOR>"
@@ -239,7 +239,7 @@ def test_contractor_legacy_address_postal_code_still_parsed():
     assert c.postal_code == "00-001"
 
 
-def test_contractor_embedded_in_document_uses_nip_for_vat_number():
+def test_contractor_embedded_in_document_uses_nip_for_vat_number() -> None:
     """In <DOCUMENT><CONTRACTOR> the VAT number is sent as <NIP>, not <VAT_NUMBER>."""
     xml = (
         "<CONTRACTOR>"
@@ -252,7 +252,7 @@ def test_contractor_embedded_in_document_uses_nip_for_vat_number():
     assert c.contractor_id == 5
 
 
-def test_contractor_inactive_flag():
+def test_contractor_inactive_flag() -> None:
     xml = "<CONTRACTOR><INACTIVE>true</INACTIVE></CONTRACTOR>"
     assert Contractor.from_xml(ET.fromstring(xml)).inactive is True
 
@@ -273,27 +273,27 @@ COMPANY_LIST_EXAMPLE = """
 """
 
 
-def test_company_name_falls_back_from_full_name_to_name():
+def test_company_name_falls_back_from_full_name_to_name() -> None:
     c = Company.from_xml(ET.fromstring(COMPANY_LIST_EXAMPLE))
     assert c.name == "PMB Sp. z o.o."
     assert c.short_name == "PMB"
 
 
-def test_company_address_reads_street_not_address():
+def test_company_address_reads_street_not_address() -> None:
     c = Company.from_xml(ET.fromstring(COMPANY_LIST_EXAMPLE))
     assert c.address == "ul. Przykladowa 12"
     assert c.postal_code == "02-001"
     assert c.city == "Warszawa"
 
 
-def test_company_program_id_and_vat_number():
+def test_company_program_id_and_vat_number() -> None:
     c = Company.from_xml(ET.fromstring(COMPANY_LIST_EXAMPLE))
     assert c.company_id == 5202
     assert c.program_id == "72c905b6"
     assert c.vat_number == "PL8921393139"
 
 
-def test_company_legacy_name_address_still_parsed():
+def test_company_legacy_name_address_still_parsed() -> None:
     xml = (
         "<COMPANY>"
         "<NAME>Old Co.</NAME>"

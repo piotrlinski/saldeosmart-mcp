@@ -7,12 +7,13 @@ files stay focused on their subject.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 
 import pytest
 
 
 @pytest.fixture
-def isolated_root_logger():
+def isolated_root_logger() -> Iterator[logging.Logger]:
     """Snapshot and restore the root logger.
 
     `setup_logging` mutates the global root logger; without this fixture
@@ -32,7 +33,7 @@ def isolated_root_logger():
 
 
 @pytest.fixture
-def clean_env(monkeypatch):
+def clean_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
     """Drop SALDEO_LOG_* env vars so logging tests exercise real defaults."""
     for var in ("SALDEO_LOG_DIR", "SALDEO_LOG_LEVEL", "SALDEO_LOG_RETENTION_DAYS"):
         monkeypatch.delenv(var, raising=False)
