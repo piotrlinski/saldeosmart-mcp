@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from saldeosmart_mcp.logging import setup_logging as _setup_logging
+from saldeosmart_mcp.logging import setup_logging
 
 
 def test_setup_logging_writes_to_configured_dir(
@@ -22,7 +22,7 @@ def test_setup_logging_writes_to_configured_dir(
     """Custom SALDEO_LOG_DIR must override the default ~/.saldeosmart/logs."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
 
-    log_file = _setup_logging()
+    log_file = setup_logging()
 
     assert log_file == tmp_path / "saldeosmart.log"
     assert log_file.parent.exists()
@@ -33,7 +33,7 @@ def test_setup_logging_routes_client_and_server_loggers(
 ) -> None:
     """Records from both `saldeosmart_mcp.http.client` and `.server` must land in the file."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-    log_file = _setup_logging()
+    log_file = setup_logging()
 
     logging.getLogger("saldeosmart_mcp.http.client").warning("hello from client")
     logging.getLogger("saldeosmart_mcp.server").warning("hello from server")
@@ -53,7 +53,7 @@ def test_setup_logging_default_retention_is_one_week(
     """Default SALDEO_LOG_RETENTION_DAYS must be 7 (one week)."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
 
-    _setup_logging()
+    setup_logging()
 
     handler = next(
         h for h in logging.getLogger().handlers
@@ -69,7 +69,7 @@ def test_setup_logging_respects_custom_retention(
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "3")
 
-    _setup_logging()
+    setup_logging()
 
     handler = next(
         h for h in logging.getLogger().handlers
@@ -85,7 +85,7 @@ def test_setup_logging_invalid_retention_falls_back_to_default(
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "not-a-number")
 
-    _setup_logging()
+    setup_logging()
 
     handler = next(
         h for h in logging.getLogger().handlers
@@ -101,7 +101,7 @@ def test_setup_logging_zero_retention_is_clamped_to_one(
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "0")
 
-    _setup_logging()
+    setup_logging()
 
     handler = next(
         h for h in logging.getLogger().handlers
@@ -116,9 +116,9 @@ def test_setup_logging_is_idempotent(
     """Calling main() twice (tests, reloads) must not stack file handlers."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
 
-    _setup_logging()
-    _setup_logging()
-    _setup_logging()
+    setup_logging()
+    setup_logging()
+    setup_logging()
 
     file_handlers = [
         h for h in logging.getLogger().handlers
@@ -134,7 +134,7 @@ def test_setup_logging_creates_missing_directory(
     target = tmp_path / "nested" / "does" / "not" / "exist"
     clean_env.setenv("SALDEO_LOG_DIR", str(target))
 
-    log_file = _setup_logging()
+    log_file = setup_logging()
 
     assert target.is_dir()
     assert log_file.parent == target
@@ -151,7 +151,7 @@ def test_setup_logging_default_location_is_under_home(
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", lambda: fake_home)
 
-    log_file = _setup_logging()
+    log_file = setup_logging()
 
     assert log_file == fake_home / ".saldeosmart" / "logs" / "saldeosmart.log"
 
@@ -162,6 +162,6 @@ def test_setup_logging_honors_log_level(
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_LEVEL", "DEBUG")
 
-    _setup_logging()
+    setup_logging()
 
     assert logging.getLogger().level == logging.DEBUG

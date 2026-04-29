@@ -21,7 +21,7 @@ import logging
 # even from `python -c "from saldeosmart_mcp.tools import mcp; ..."`.
 from . import tools as _tools  # noqa: F401  — side-effect import
 from .logging import setup_logging
-from .tools._runtime import get_client, mcp, reset_client_for_tests
+from .tools._runtime import close_client, get_client, mcp
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def main() -> None:
     try:
         mcp.run()  # stdio transport — what Claude Desktop expects
     finally:
-        reset_client_for_tests()
+        close_client()
 
 
 if __name__ == "__main__":

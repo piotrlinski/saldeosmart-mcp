@@ -4,7 +4,7 @@ These exist as a module rather than in a "utils" grab-bag so the dependency
 direction stays clean: ``http`` and ``models`` both depend on this module;
 nothing here depends on either.
 
-Beyond the obvious child-text readers, ``_set_text`` is the small workhorse
+Beyond the obvious child-text readers, ``set_text`` is the small workhorse
 behind every request-XML builder: append a child only when the value is set,
 serialize booleans the way Saldeo expects (``"true"``/``"false"``), skip
 empty strings (an empty element would tell Saldeo "clear this field").
@@ -71,10 +71,6 @@ def set_text(parent: ET.Element, tag: str, value: object | None) -> None:
     ET.SubElement(parent, tag).text = text
 
 
-# Back-compat alias used by the request-XML builders pre-reorg. Treat as private.
-_set_text = set_text
-
-
 # ---- Log redaction ---------------------------------------------------------------
 
 
@@ -98,8 +94,3 @@ def redact_url(url: str) -> str:
     never appear in a URL, but redact defensively.
     """
     return _URL_REDACT_RE.sub(r"\1=***", url)
-
-
-# Back-compat aliases (underscore-prefixed names used pre-reorg).
-_redact = redact_params
-_redact_url = redact_url

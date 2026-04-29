@@ -51,10 +51,11 @@ class RequestSigner:
             "req_id": req_id,
             **{k: str(v) for k, v in extra.items()},
         }
-        sig = self._sign(signed)
+        sig = self.sign(signed, self._api_token)
         return {"username": self._username, "req_id": req_id, "req_sig": sig}
 
-    def _sign(self, params: dict[str, str]) -> str:
+    @staticmethod
+    def sign(params: dict[str, str], api_token: str) -> str:
         """Algorithm from the spec's "Authentication" section:
 
         1. Sort params alphabetically by key (no empty, no duplicates)
@@ -75,7 +76,7 @@ class RequestSigner:
         # usedforsecurity=False: spec mandates MD5 — flag prevents FIPS/Bandit
         # complaints without sacrificing the algorithm Saldeo requires.
         return hashlib.md5(
-            (encoded + self._api_token).encode("utf-8"), usedforsecurity=False
+            (encoded + api_token).encode("utf-8"), usedforsecurity=False
         ).hexdigest()
 
     @staticmethod
@@ -83,24 +84,3 @@ class RequestSigner:
         """XML → gzip → base64 string. Used for the `command` parameter."""
         gz = gzip.compress(xml.encode("utf-8"))
         return base64.b64encode(gz).decode("ascii")
-
-
-# ---- Back-compat test seams ------------------------------------------------------
-# Tests pre-reorg reach in for these. The class form is the public API; these thin
-# wrappers exist purely so existing tests don't have to change shape.
-
-
-def _build_signature(params: dict[str, str], api_token: str) -> str:
-    """Compute the request signature. See :class:`RequestSigner` for details."""
-    signer = RequestSigner(username="_unused", api_token=api_token)
-    return signer._sign(params)
-
-
-def _encode_command(xml: str) -> str:
-    """XML → gzip → base64. See :meth:`RequestSigner.encode_command`."""
-    return RequestSigner.encode_command(xml)
-
-
-# Underscore aliases used by the older test files.
-_saldeo_url_encode = saldeo_url_encode
-_new_req_id = new_req_id

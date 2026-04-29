@@ -14,18 +14,17 @@ live in ``_runtime``.
 
 from __future__ import annotations
 
-# Import every submodule so its tools register against `mcp`. The order doesn't
-# matter for registration but follows resource-family alphabetical order.
+# Importing each submodule registers its @mcp.tool functions against the shared
+# FastMCP instance. The submodules each `from ._runtime import mcp`, so
+# `_runtime` is fully initialized before the first tool body runs regardless of
+# the order in this file (isort puts `from .` before `from ._runtime`).
 from . import bank, catalog, companies, contractors, dimensions, documents, invoices, personnel
-
-# Import the runtime first so submodules find a fully-initialized mcp instance.
 from ._runtime import (
-    error_payload,
+    close_client,
     error_response,
     get_client,
     mcp,
     parse_collection,
-    reset_client_for_tests,
     saldeo_call,
     summarize_merge,
 )
@@ -90,12 +89,11 @@ __all__ = [
     "sync_documents",
     "update_documents",
     # Runtime helpers
-    "error_payload",
+    "close_client",
     "error_response",
     "get_client",
     "mcp",
     "parse_collection",
-    "reset_client_for_tests",
     "saldeo_call",
     "summarize_merge",
     # Submodule references (so static analyzers see them as used)

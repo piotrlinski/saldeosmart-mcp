@@ -66,10 +66,3 @@ def build_simple_merge_xml(
         for attr, tag in field_specs:
             set_text(item_el, tag, getattr(item, attr, None))
     return ET.tostring(root, encoding="unicode")
-
-
-# ---- Back-compat aliases (underscore names used pre-reorg) -----------------------
-
-_build_folder_xml = build_folder_xml
-_append_id_group = append_id_group
-_build_simple_merge_xml = build_simple_merge_xml

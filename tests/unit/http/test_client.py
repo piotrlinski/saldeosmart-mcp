@@ -18,13 +18,13 @@ from pydantic import SecretStr
 from saldeosmart_mcp.config import SaldeoConfig
 from saldeosmart_mcp.errors import SaldeoError, iter_item_errors
 from saldeosmart_mcp.http import SaldeoClient, el_bool
-from saldeosmart_mcp.http.signing import _build_signature, _encode_command, _saldeo_url_encode
-from saldeosmart_mcp.http.xml import _redact_url
+from saldeosmart_mcp.http.signing import RequestSigner, saldeo_url_encode
+from saldeosmart_mcp.http.xml import redact_url
 
 
 def test_url_encoding_uses_plus_for_space() -> None:
     # Spec: space is encoded as '+', not %20
-    assert _saldeo_url_encode("a b") == "a+b"
+    assert saldeo_url_encode("a b") == "a+b"
 
 
 def test_signature_matches_spec_example() -> None:
@@ -40,29 +40,28 @@ def test_signature_matches_spec_example() -> None:
     # Sorted alphabetically: req_id < username
     expected_base = "req_id=20140301123056username=demo"
     expected = hashlib.md5(
-        (_saldeo_url_encode(expected_base) + api_token).encode()
+        (saldeo_url_encode(expected_base) + api_token).encode()
     ).hexdigest()
 
-    assert _build_signature(params, api_token) == expected
+    assert RequestSigner.sign(params, api_token) == expected
 
 
 def test_signature_sorts_keys_alphabetically() -> None:
     """Order of params in the dict must not matter — must always be sorted."""
-    a = _build_signature({"username": "u", "req_id": "1", "policy": "X"}, "tok")
-    b = _build_signature({"policy": "X", "req_id": "1", "username": "u"}, "tok")
+    a = RequestSigner.sign({"username": "u", "req_id": "1", "policy": "X"}, "tok")
+    b = RequestSigner.sign({"policy": "X", "req_id": "1", "username": "u"}, "tok")
     assert a == b
 
 
 def test_signature_rejects_empty_values() -> None:
-    import pytest
     with pytest.raises(ValueError):
-        _build_signature({"username": "u", "req_id": ""}, "tok")
+        RequestSigner.sign({"username": "u", "req_id": ""}, "tok")
 
 
 def test_encode_command_round_trip() -> None:
     """gzip → base64 must be reversible to original XML."""
     xml = "<?xml version='1.0'?><ROOT><HELLO>world</HELLO></ROOT>"
-    encoded = _encode_command(xml)
+    encoded = RequestSigner.encode_command(xml)
 
     # Should be ASCII-safe
     encoded.encode("ascii")  # raises if not
@@ -76,7 +75,7 @@ def test_signature_includes_extra_query_params() -> None:
     """When extra params are present (e.g. company_program_id), they must be signed."""
     base_params = {"username": "u", "req_id": "1"}
     with_extra = {**base_params, "company_program_id": "1234"}
-    assert _build_signature(base_params, "tok") != _build_signature(with_extra, "tok")
+    assert RequestSigner.sign(base_params, "tok") != RequestSigner.sign(with_extra, "tok")
 
 
 # ---- Error parsing ---------------------------------------------------------------
@@ -267,7 +266,7 @@ def test_successful_response_logs_operation_name(caplog: pytest.LogCaptureFixtur
 def test_redact_url_strips_signature() -> None:
     """req_sig must never appear in log lines — it's noise that breaks grep."""
     url = "https://saldeo.brainshare.pl/api/xml/1.0/company/list?username=u&req_id=42&req_sig=abc123def456"
-    redacted = _redact_url(url)
+    redacted = redact_url(url)
     assert "abc123def456" not in redacted
     assert "req_sig=***" in redacted
     # Non-sensitive params still present.
@@ -278,7 +277,7 @@ def test_redact_url_strips_signature() -> None:
 def test_redact_url_handles_api_token_defensively() -> None:
     """api_token should never be in a URL, but redact if it shows up."""
     url = "http://x?api_token=SECRET&foo=bar"
-    redacted = _redact_url(url)
+    redacted = redact_url(url)
     assert "SECRET" not in redacted
     assert "foo=bar" in redacted
 

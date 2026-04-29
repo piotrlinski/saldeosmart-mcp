@@ -64,9 +64,3 @@ def setup_logging() -> Path:
             return log_file
     root.addHandler(handler)
     return log_file
-
-
-# Back-compat alias so callers that import the underscore-prefixed name still work
-# during the transition. Treat as private — production callers should use
-# `setup_logging` (no underscore).
-_setup_logging = setup_logging

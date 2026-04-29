@@ -3,7 +3,7 @@
 Owns:
 - the single ``mcp = FastMCP(...)`` instance every tool registers against,
 - the lazy process-wide ``SaldeoClient`` cache,
-- the ``_saldeo_call`` decorator (turns ``SaldeoError`` into ``ErrorResponse``),
+- the ``saldeo_call`` decorator (turns ``SaldeoError`` into ``ErrorResponse``),
 - the per-merge-batch summary helper.
 
 Tool modules import ``mcp`` and the helpers from here; this module imports
@@ -16,7 +16,7 @@ from __future__ import annotations
 import functools
 import logging
 from collections.abc import Callable
-from typing import Any, ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar
 from xml.etree import ElementTree as ET
 
 from fastmcp import FastMCP
@@ -66,17 +66,16 @@ def get_client() -> SaldeoClient:
     return _SHARED_CLIENT
 
 
-def reset_client_for_tests() -> None:
-    """Drop the cached client. Tests use this to swap configs between runs."""
+def close_client() -> None:
+    """Close the shared SaldeoClient and drop the cache.
+
+    Called from ``server.main()``'s ``finally`` block on shutdown, and from
+    tests that need to swap configs between runs.
+    """
     global _SHARED_CLIENT
     if _SHARED_CLIENT is not None:
         _SHARED_CLIENT.close()
         _SHARED_CLIENT = None
-
-
-# Back-compat aliases for the older underscore-prefixed names.
-_client = get_client
-_reset_client_for_tests = reset_client_for_tests
 
 
 # ---- Decorators ------------------------------------------------------------------
@@ -100,10 +99,6 @@ def saldeo_call(fn: Callable[_P, _T]) -> Callable[_P, _T | ErrorResponse]:
     return wrapper
 
 
-# Underscore alias used pre-reorg.
-_saldeo_call = saldeo_call
-
-
 # ---- Helpers shared across tool modules ------------------------------------------
 
 
@@ -120,9 +115,6 @@ def parse_collection(
     return [parser(el) for el in container.findall(item_tag)]
 
 
-_parse_collection = parse_collection
-
-
 def error_response(e: SaldeoError) -> ErrorResponse:
     """Map a SaldeoError exception into the public ErrorResponse model."""
     return ErrorResponse(
@@ -131,29 +123,6 @@ def error_response(e: SaldeoError) -> ErrorResponse:
         http_status=e.http_status,
         details=[ItemErrorPayload.from_dataclass(d) for d in e.details],
     )
-
-
-_error_response = error_response
-
-
-def error_payload(e: SaldeoError) -> dict[str, Any]:
-    """Render SaldeoError as a JSON-friendly dict for the MCP boundary.
-
-    Kept for backwards compatibility with legacy tests that expect a plain
-    dict shape; new code should prefer :func:`error_response`.
-    """
-    payload: dict[str, Any] = {"error": e.code, "message": e.message}
-    if e.http_status is not None:
-        payload["http_status"] = e.http_status
-    if e.details:
-        payload["details"] = [
-            {"status": d.status, "path": d.path, "message": d.message, "item_id": d.item_id}
-            for d in e.details
-        ]
-    return payload
-
-
-_error_payload = error_payload
 
 
 def summarize_merge(root: ET.Element, *, total: int) -> MergeResult:
@@ -172,6 +141,3 @@ def summarize_merge(root: ET.Element, *, total: int) -> MergeResult:
         successful=max(total - len(payloads), 0),
         errors=payloads,
     )
-
-
-_summarize_merge = summarize_merge
