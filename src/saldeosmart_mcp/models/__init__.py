@@ -2,13 +2,9 @@
 
 Organized by Saldeo resource family. Each submodule owns the read response
 models, the input models, and any helpers exclusive to that family.
-``ItemErrorPayload`` / ``ErrorResponse`` / ``MergeResult`` live in
-``saldeosmart_mcp.errors`` because they're cross-cutting; they're re-
-exported from here for backwards compatibility.
-
-This file is the public face of the ``saldeosmart_mcp.models`` namespace —
-everything in pre-reorg ``models.py`` is re-exported here, so
-``from saldeosmart_mcp.models import Document`` keeps working.
+The cross-cutting error models (``ItemErrorPayload`` / ``ErrorResponse`` /
+``MergeResult``) live in ``saldeosmart_mcp.errors`` and are re-exported here
+so the ``saldeosmart_mcp.models`` namespace is the single public face.
 """
 
 from __future__ import annotations

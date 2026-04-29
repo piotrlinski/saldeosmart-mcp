@@ -12,7 +12,7 @@ Two classes of bug we guard against:
 Reference shapes: ``.temp/api-html-mirror/`` (request schemas
 ``*_request.xsd`` and example payloads ``*_request_example.xml``).
 
-These tests also cover ``_summarize_merge`` because the merge response
+These tests also cover ``summarize_merge`` because the merge response
 shape is the symmetric counterpart of the merge request — easier to keep
 the round-trip honest by testing them side by side.
 """
@@ -40,10 +40,10 @@ from saldeosmart_mcp.models import (
     RegisterInput,
 )
 from saldeosmart_mcp.tools._builders import (
-    _build_folder_xml,
-    _build_simple_merge_xml,
+    build_folder_xml,
+    build_simple_merge_xml,
 )
-from saldeosmart_mcp.tools._runtime import _summarize_merge
+from saldeosmart_mcp.tools._runtime import summarize_merge
 from saldeosmart_mcp.tools.catalog import (
     _build_article_merge_xml,
     _build_fee_merge_xml,
@@ -100,8 +100,8 @@ def test_build_search_xml_escapes_special_characters() -> None:
 # ---- 3.0 paginated id-list / listbyid builders -----------------------------------
 
 
-def test_build_folder_xml_emits_year_and_month() -> None:
-    root = ET.fromstring(_build_folder_xml(year=2024, month=3))
+def testbuild_folder_xml_emits_year_and_month() -> None:
+    root = ET.fromstring(build_folder_xml(year=2024, month=3))
     assert root.find("FOLDER/YEAR").text == "2024"  # type: ignore[union-attr]
     assert root.find("FOLDER/MONTH").text == "3"  # type: ignore[union-attr]
 
@@ -189,9 +189,9 @@ def test_build_personnel_list_xml_default_is_all_documents() -> None:
 # ---- merge / write XML builders --------------------------------------------------
 
 
-def test_build_simple_merge_xml_skips_none_fields() -> None:
+def testbuild_simple_merge_xml_skips_none_fields() -> None:
     items = [CategoryInput(name="Office", category_program_id="CAT_OFC")]
-    xml = _build_simple_merge_xml(
+    xml = build_simple_merge_xml(
         container_tag="CATEGORIES",
         item_tag="CATEGORY",
         items=items,
@@ -464,10 +464,10 @@ def test_build_document_sync_xml_emits_only_provided_keys() -> None:
     assert sync.find("ISSUE_DATE") is None  # type: ignore[union-attr]  # not provided
 
 
-# ---- _summarize_merge ------------------------------------------------------------
+# ---- summarize_merge ------------------------------------------------------------
 
 
-def test_summarize_merge_counts_successes_and_errors() -> None:
+def testsummarize_merge_counts_successes_and_errors() -> None:
     """Saldeo answers STATUS=OK at the envelope even when items fail.
     Counts must reflect per-item outcomes, not the envelope."""
     xml = """
@@ -493,7 +493,7 @@ def test_summarize_merge_counts_successes_and_errors() -> None:
     </RESPONSE>
     """
     root = ET.fromstring(xml)
-    result = _summarize_merge(root, total=2)
+    result = summarize_merge(root, total=2)
     assert result.operation == "contractor.merge"
     assert result.total == 2
     assert result.successful == 1
@@ -501,18 +501,18 @@ def test_summarize_merge_counts_successes_and_errors() -> None:
     assert result.errors[0].path == "VAT_NUMBER"
 
 
-def test_summarize_merge_handles_envelope_without_metainf() -> None:
+def testsummarize_merge_handles_envelope_without_metainf() -> None:
     xml = "<RESPONSE><STATUS>OK</STATUS></RESPONSE>"
     root = ET.fromstring(xml)
-    result = _summarize_merge(root, total=0)
+    result = summarize_merge(root, total=0)
     assert result.operation is None
     assert result.successful == 0
 
 
 def test_typed_inputs_sanity_check_register_and_method_and_payment() -> None:
     """Happy-path schema check: simple merge XMLs round-trip correctly for the
-    flat-field ops sharing _build_simple_merge_xml."""
-    reg_xml = _build_simple_merge_xml(
+    flat-field ops sharing build_simple_merge_xml."""
+    reg_xml = build_simple_merge_xml(
         container_tag="REGISTERS",
         item_tag="REGISTER",
         items=[RegisterInput(name="VAT-S", register_program_id="VAT-S")],
@@ -522,7 +522,7 @@ def test_typed_inputs_sanity_check_register_and_method_and_payment() -> None:
             ("name", "NAME"),
         ],
     )
-    pm_xml = _build_simple_merge_xml(
+    pm_xml = build_simple_merge_xml(
         container_tag="PAYMENT_METHODS",
         item_tag="PAYMENT_METHOD",
         items=[PaymentMethodInput(name="Cash")],
@@ -532,7 +532,7 @@ def test_typed_inputs_sanity_check_register_and_method_and_payment() -> None:
             ("name", "NAME"),
         ],
     )
-    desc_xml = _build_simple_merge_xml(
+    desc_xml = build_simple_merge_xml(
         container_tag="DESCRIPTIONS",
         item_tag="DESCRIPTION",
         items=[DescriptionInput(value="goods purchase")],

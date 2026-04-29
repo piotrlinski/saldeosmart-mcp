@@ -22,7 +22,7 @@ from ..models import (
     MergeResult,
     RecognizeOptionInput,
 )
-from ._builders import build_folder_xml
+from ._builders import append_id_group, build_folder_xml
 from ._runtime import (
     get_client,
     mcp,
@@ -239,6 +239,11 @@ def update_documents(
     Only set the fields you want to change — everything left as ``None`` is
     preserved on the server side.
     """
+    if not documents:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one document is required.",
+        )
     xml = _build_document_update_xml(documents)
     root = get_client().post_command(
         "/api/xml/2.4/document/update",
@@ -258,6 +263,11 @@ def delete_documents(
 
     ⚠ Destructive. Each ID is removed in Saldeo.
     """
+    if not document_ids:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one document_id is required.",
+        )
     xml = _build_document_delete_xml(document_ids)
     root = get_client().post_command(
         "/api/xml/1.13/document/delete",
@@ -278,6 +288,11 @@ def recognize_documents(
     Saldeo returns OCR_ORIGIN_IDs you can later pass to
     ``list_recognized_documents`` once the recognition completes.
     """
+    if not documents:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one document is required.",
+        )
     xml = _build_recognize_xml(documents)
     root = get_client().post_command(
         "/api/xml/1.20/document/recognize",
@@ -300,6 +315,11 @@ def sync_documents(
     Each entry must identify the document either by ``saldeo_id`` or by the
     triple (``contractor_program_id``, ``document_number``, ``issue_date``).
     """
+    if not syncs:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one sync entry is required.",
+        )
     xml = _build_document_sync_xml(syncs)
     root = get_client().post_command(
         "/api/xml/1.13/document/sync",
@@ -320,6 +340,11 @@ def merge_document_dimensions(
     Each entry pins one document and the dimension code/value pairs to set.
     The dimensions referenced must already exist (use ``merge_dimensions``).
     """
+    if not documents:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one document is required.",
+        )
     xml = _build_document_dimension_xml(documents)
     root = get_client().post_command(
         "/api/xml/1.13/document_dimension/merge",
@@ -372,8 +397,6 @@ def _build_document_id_groups_xml(
     writings: list[int] | None,
     other_documents: list[int] | None,
 ) -> str:
-    from ._builders import append_id_group
-
     root = ET.Element("ROOT")
     append_id_group(root, "CONTRACTS", "CONTRACT", contracts)
     append_id_group(root, "INVOICES_COST", "INVOICE_COST", invoices_cost)

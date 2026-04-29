@@ -45,6 +45,11 @@ def merge_categories(
         MergeResult — total + per-item successes/errors. On envelope-level
         failure, ErrorResponse (see docs/ERROR_CODES.md).
     """
+    if not categories:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one category is required.",
+        )
     xml = build_simple_merge_xml(
         container_tag="CATEGORIES",
         item_tag="CATEGORY",
@@ -82,6 +87,11 @@ def merge_payment_methods(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
+    if not payment_methods:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one payment method is required.",
+        )
     xml = build_simple_merge_xml(
         container_tag="PAYMENT_METHODS",
         item_tag="PAYMENT_METHOD",
@@ -119,6 +129,11 @@ def merge_registers(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
+    if not registers:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one register is required.",
+        )
     xml = build_simple_merge_xml(
         container_tag="REGISTERS",
         item_tag="REGISTER",
@@ -155,6 +170,11 @@ def merge_descriptions(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
+    if not descriptions:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one description is required.",
+        )
     xml = build_simple_merge_xml(
         container_tag="DESCRIPTIONS",
         item_tag="DESCRIPTION",
@@ -193,6 +213,11 @@ def merge_articles(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
+    if not articles:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one article is required.",
+        )
     xml = _build_article_merge_xml(articles)
     root = get_client().post_command(
         "/api/xml/1.14/article/merge",
@@ -227,6 +252,11 @@ def merge_fees(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
+    if not fees:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one fee is required.",
+        )
     xml = _build_fee_merge_xml(year=year, month=month, fees=fees)
     root = get_client().post_command(
         "/api/xml/1.13/fee/merge",

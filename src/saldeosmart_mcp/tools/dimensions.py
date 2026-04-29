@@ -38,6 +38,11 @@ def merge_dimensions(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
+    if not dimensions:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one dimension is required.",
+        )
     xml = _build_dimension_merge_xml(dimensions)
     root = get_client().post_command(
         "/api/xml/1.12/dimension/merge",
