@@ -1,0 +1,58 @@
+name: Feature request
+description: Propose a new MCP tool or an enhancement to an existing one.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation / use case
+      description: What are you trying to do? What is missing today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed tool or change
+      description: |
+        For a new tool, sketch the signature in the docstring style described
+        in `CONTRIBUTING.md`. For an enhancement, describe the change.
+      placeholder: |
+        ```python
+        @mcp.tool
+        def list_widgets(
+            company_program_id: str,
+            policy: WidgetPolicy = "ALL",
+        ) -> WidgetList | ErrorResponse:
+            ...
+        ```
+    validations:
+      required: true
+
+  - type: input
+    id: api-endpoint
+    attributes:
+      label: SaldeoSMART API endpoint
+      description: |
+        If this wraps an upstream endpoint, point at the relevant XSD /
+        example file under `.temp/api-html-mirror/` (e.g.
+        `3.0/widget_list_request.xsd`).
+      placeholder: "3.0/widget_list_request.xsd"
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Tool kind
+      options:
+        - Read-only
+        - Write / merge / update (mutates customer data)
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing tools you tried, workarounds, or other API endpoints.

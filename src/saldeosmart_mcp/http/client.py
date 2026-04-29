@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import NoReturn
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -207,7 +208,7 @@ class SaldeoClient:
         )
 
     @staticmethod
-    def _raise_http_error(text: str, http_status: int, url: str, reason: str) -> None:
+    def _raise_http_error(text: str, http_status: int, url: str, reason: str) -> NoReturn:
         """Raise SaldeoError for an HTTP 4xx/5xx with no structured envelope."""
         snippet = (text or "").strip()[:500] or reason or "<empty body>"
         logger.warning(
@@ -223,7 +224,7 @@ class SaldeoClient:
     @staticmethod
     def _raise_parse_error(
         text: str, url: str, parse_error: ET.ParseError | None
-    ) -> None:
+    ) -> NoReturn:
         """Raise SaldeoError when the 2xx body isn't valid XML."""
         logger.warning(
             "SaldeoSMART parse error: %s url=%s body=%r",
