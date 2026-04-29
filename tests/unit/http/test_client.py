@@ -13,6 +13,7 @@ from xml.etree import ElementTree as ET
 
 import httpx
 import pytest
+from pydantic import SecretStr
 
 from saldeosmart_mcp.config import SaldeoConfig
 from saldeosmart_mcp.errors import SaldeoError, iter_item_errors
@@ -21,12 +22,12 @@ from saldeosmart_mcp.http.signing import _build_signature, _encode_command, _sal
 from saldeosmart_mcp.http.xml import _redact_url
 
 
-def test_url_encoding_uses_plus_for_space():
+def test_url_encoding_uses_plus_for_space() -> None:
     # Spec: space is encoded as '+', not %20
     assert _saldeo_url_encode("a b") == "a+b"
 
 
-def test_signature_matches_spec_example():
+def test_signature_matches_spec_example() -> None:
     """
     The spec gives a concrete worked example:
       base = "req_id=<req-id>username=<username>"
@@ -45,20 +46,20 @@ def test_signature_matches_spec_example():
     assert _build_signature(params, api_token) == expected
 
 
-def test_signature_sorts_keys_alphabetically():
+def test_signature_sorts_keys_alphabetically() -> None:
     """Order of params in the dict must not matter — must always be sorted."""
     a = _build_signature({"username": "u", "req_id": "1", "policy": "X"}, "tok")
     b = _build_signature({"policy": "X", "req_id": "1", "username": "u"}, "tok")
     assert a == b
 
 
-def test_signature_rejects_empty_values():
+def test_signature_rejects_empty_values() -> None:
     import pytest
     with pytest.raises(ValueError):
         _build_signature({"username": "u", "req_id": ""}, "tok")
 
 
-def test_encode_command_round_trip():
+def test_encode_command_round_trip() -> None:
     """gzip → base64 must be reversible to original XML."""
     xml = "<?xml version='1.0'?><ROOT><HELLO>world</HELLO></ROOT>"
     encoded = _encode_command(xml)
@@ -71,7 +72,7 @@ def test_encode_command_round_trip():
     assert decoded == xml
 
 
-def test_signature_includes_extra_query_params():
+def test_signature_includes_extra_query_params() -> None:
     """When extra params are present (e.g. company_program_id), they must be signed."""
     base_params = {"username": "u", "req_id": "1"}
     with_extra = {**base_params, "company_program_id": "1234"}
@@ -82,7 +83,7 @@ def test_signature_includes_extra_query_params():
 
 
 def _client() -> SaldeoClient:
-    return SaldeoClient(SaldeoConfig(username="u", api_token="t"))
+    return SaldeoClient(SaldeoConfig(username="u", api_token=SecretStr("t")))
 
 
 def _resp(text: str, status: int = 200) -> httpx.Response:
@@ -90,7 +91,7 @@ def _resp(text: str, status: int = 200) -> httpx.Response:
                           request=httpx.Request("GET", "http://x"))
 
 
-def test_parses_top_level_error_envelope():
+def test_parses_top_level_error_envelope() -> None:
     """ERROR_CODE / ERROR_MESSAGE are direct children of <RESPONSE> — not nested."""
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
@@ -107,7 +108,7 @@ def test_parses_top_level_error_envelope():
     assert exc.value.http_status is None
 
 
-def test_status_error_with_missing_fields_falls_back_gracefully():
+def test_status_error_with_missing_fields_falls_back_gracefully() -> None:
     """ERROR envelope without code/message must not produce 'Unknown error' silently."""
     xml = "<RESPONSE><STATUS>ERROR</STATUS></RESPONSE>"
     with pytest.raises(SaldeoError) as exc:
@@ -116,7 +117,7 @@ def test_status_error_with_missing_fields_falls_back_gracefully():
     assert "STATUS=ERROR" in exc.value.message
 
 
-def test_http_error_with_xml_envelope_uses_envelope_code():
+def test_http_error_with_xml_envelope_uses_envelope_code() -> None:
     """HTTP 4xx/5xx with a structured body should surface ERROR_CODE, not HTTP_xxx."""
     xml = (
         "<RESPONSE>"
@@ -131,7 +132,7 @@ def test_http_error_with_xml_envelope_uses_envelope_code():
     assert exc.value.http_status == 403
 
 
-def test_http_error_without_xml_body():
+def test_http_error_without_xml_body() -> None:
     """When body isn't XML at all, fall back to HTTP_<status>."""
     with pytest.raises(SaldeoError) as exc:
         _client()._parse_response(_resp("Service Unavailable", status=503))
@@ -139,19 +140,19 @@ def test_http_error_without_xml_body():
     assert exc.value.http_status == 503
 
 
-def test_parse_error_on_garbage_2xx_body():
+def test_parse_error_on_garbage_2xx_body() -> None:
     with pytest.raises(SaldeoError) as exc:
         _client()._parse_response(_resp("not xml at all", status=200))
     assert exc.value.code == "PARSE_ERROR"
 
 
-def test_status_ok_returns_root():
+def test_status_ok_returns_root() -> None:
     xml = "<RESPONSE><STATUS>OK</STATUS><DOCUMENTS/></RESPONSE>"
     root = _client()._parse_response(_resp(xml))
     assert root.tag == "RESPONSE"
 
 
-def test_iter_item_errors_collects_validation_and_operational():
+def test_iter_item_errors_collects_validation_and_operational() -> None:
     """Per-item errors come in two flavors — both must surface with item_id."""
     xml = """
     <RESPONSE>
@@ -193,7 +194,7 @@ def test_iter_item_errors_collects_validation_and_operational():
     assert op_err.item_id == "2"
 
 
-def test_iter_item_errors_handles_personnel_status_message():
+def test_iter_item_errors_handles_personnel_status_message() -> None:
     """Personnel endpoints use STATUS + STATUS_MESSAGE instead of UPDATE_STATUS."""
     xml = """
     <RESPONSE>
@@ -216,7 +217,7 @@ def test_iter_item_errors_handles_personnel_status_message():
     assert errs[0].message == "missing required field"
 
 
-def test_top_level_error_is_logged_at_warning(caplog):
+def test_top_level_error_is_logged_at_warning(caplog: pytest.LogCaptureFixture) -> None:
     """The httpx layer logs HTTP 200 OK for these — without our log, the
     real SaldeoSMART error would be invisible in the log file."""
     xml = (
@@ -234,7 +235,7 @@ def test_top_level_error_is_logged_at_warning(caplog):
     assert any("code=4302" in m and "User is locked" in m for m in msgs)
 
 
-def test_http_error_is_logged_at_warning(caplog):
+def test_http_error_is_logged_at_warning(caplog: pytest.LogCaptureFixture) -> None:
     with (
         caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
         pytest.raises(SaldeoError),
@@ -243,7 +244,7 @@ def test_http_error_is_logged_at_warning(caplog):
     assert any("status=502" in r.getMessage() for r in caplog.records)
 
 
-def test_parse_error_is_logged_at_warning(caplog):
+def test_parse_error_is_logged_at_warning(caplog: pytest.LogCaptureFixture) -> None:
     with (
         caplog.at_level("WARNING", logger="saldeosmart_mcp.http.client"),
         pytest.raises(SaldeoError),
@@ -252,7 +253,7 @@ def test_parse_error_is_logged_at_warning(caplog):
     assert any("parse error" in r.getMessage().lower() for r in caplog.records)
 
 
-def test_successful_response_logs_operation_name(caplog):
+def test_successful_response_logs_operation_name(caplog: pytest.LogCaptureFixture) -> None:
     xml = (
         "<RESPONSE>"
         "<METAINF><OPERATION>company.list</OPERATION></METAINF>"
@@ -263,7 +264,7 @@ def test_successful_response_logs_operation_name(caplog):
     assert any("operation=company.list" in r.getMessage() for r in caplog.records)
 
 
-def test_redact_url_strips_signature():
+def test_redact_url_strips_signature() -> None:
     """req_sig must never appear in log lines — it's noise that breaks grep."""
     url = "https://saldeo.brainshare.pl/api/xml/1.0/company/list?username=u&req_id=42&req_sig=abc123def456"
     redacted = _redact_url(url)
@@ -274,7 +275,7 @@ def test_redact_url_strips_signature():
     assert "req_id=42" in redacted
 
 
-def test_redact_url_handles_api_token_defensively():
+def test_redact_url_handles_api_token_defensively() -> None:
     """api_token should never be in a URL, but redact if it shows up."""
     url = "http://x?api_token=SECRET&foo=bar"
     redacted = _redact_url(url)
@@ -282,9 +283,9 @@ def test_redact_url_handles_api_token_defensively():
     assert "foo=bar" in redacted
 
 
-def test_secret_str_protects_token_from_repr():
+def test_secret_str_protects_token_from_repr() -> None:
     """SaldeoConfig must not surface the api_token in repr/str."""
-    config = SaldeoConfig(username="u", api_token="my-real-token")
+    config = SaldeoConfig(username="u", api_token=SecretStr("my-real-token"))
     assert "my-real-token" not in repr(config)
     assert "my-real-token" not in str(config)
     # But the value is still recoverable.
@@ -308,18 +309,18 @@ def test_secret_str_protects_token_from_repr():
         ("anything-else", False),
     ],
 )
-def test_el_bool_parses_common_truthy_tokens(raw, expected):
+def test_el_bool_parses_common_truthy_tokens(raw: str, expected: bool) -> None:
     el = ET.fromstring(f"<X><FLAG>{raw}</FLAG></X>")
     assert el_bool(el, "FLAG") is expected
 
 
-def test_el_bool_returns_default_for_missing_tag():
+def test_el_bool_returns_default_for_missing_tag() -> None:
     el = ET.fromstring("<X/>")
     assert el_bool(el, "MISSING") is False
     assert el_bool(el, "MISSING", default=True) is True
 
 
-def test_request_lock_serializes_concurrent_calls():
+def test_request_lock_serializes_concurrent_calls() -> None:
     """Spec: no concurrent requests. The internal lock must serialize them."""
     import threading
     import time as _time
@@ -329,7 +330,7 @@ def test_request_lock_serializes_concurrent_calls():
     max_in_flight = 0
     lock = threading.Lock()
 
-    def fake_get(*_args, **_kwargs):
+    def fake_get(*_args: object, **_kwargs: object) -> httpx.Response:
         nonlocal in_flight, max_in_flight
         with lock:
             in_flight += 1
@@ -354,7 +355,7 @@ def test_request_lock_serializes_concurrent_calls():
     assert max_in_flight == 1, f"expected serial, saw {max_in_flight} concurrent"
 
 
-def test_iter_item_errors_empty_on_all_success():
+def test_iter_item_errors_empty_on_all_success() -> None:
     xml = (
         "<RESPONSE><STATUS>OK</STATUS>"
         "<DOCUMENTS><DOCUMENT><UPDATE_STATUS>UPDATED</UPDATE_STATUS>"

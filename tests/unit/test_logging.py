@@ -11,10 +11,14 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
+import pytest
+
 from saldeosmart_mcp.logging import setup_logging as _setup_logging
 
 
-def test_setup_logging_writes_to_configured_dir(tmp_path, isolated_root_logger, clean_env):
+def test_setup_logging_writes_to_configured_dir(
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     """Custom SALDEO_LOG_DIR must override the default ~/.saldeosmart/logs."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
 
@@ -24,7 +28,9 @@ def test_setup_logging_writes_to_configured_dir(tmp_path, isolated_root_logger, 
     assert log_file.parent.exists()
 
 
-def test_setup_logging_routes_client_and_server_loggers(tmp_path, isolated_root_logger, clean_env):
+def test_setup_logging_routes_client_and_server_loggers(
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     """Records from both `saldeosmart_mcp.http.client` and `.server` must land in the file."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     log_file = _setup_logging()
@@ -41,7 +47,9 @@ def test_setup_logging_routes_client_and_server_loggers(tmp_path, isolated_root_
     assert "saldeosmart_mcp.server" in contents
 
 
-def test_setup_logging_default_retention_is_one_week(tmp_path, isolated_root_logger, clean_env):
+def test_setup_logging_default_retention_is_one_week(
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     """Default SALDEO_LOG_RETENTION_DAYS must be 7 (one week)."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
 
@@ -55,7 +63,9 @@ def test_setup_logging_default_retention_is_one_week(tmp_path, isolated_root_log
     assert handler.when == "MIDNIGHT"
 
 
-def test_setup_logging_respects_custom_retention(tmp_path, isolated_root_logger, clean_env):
+def test_setup_logging_respects_custom_retention(
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "3")
 
@@ -69,8 +79,8 @@ def test_setup_logging_respects_custom_retention(tmp_path, isolated_root_logger,
 
 
 def test_setup_logging_invalid_retention_falls_back_to_default(
-    tmp_path, isolated_root_logger, clean_env
-):
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     """Garbage in SALDEO_LOG_RETENTION_DAYS shouldn't break startup."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "not-a-number")
@@ -85,8 +95,8 @@ def test_setup_logging_invalid_retention_falls_back_to_default(
 
 
 def test_setup_logging_zero_retention_is_clamped_to_one(
-    tmp_path, isolated_root_logger, clean_env
-):
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     """A retention of 0 or negative would disable rotation entirely; clamp to 1."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "0")
@@ -100,7 +110,9 @@ def test_setup_logging_zero_retention_is_clamped_to_one(
     assert handler.backupCount >= 1
 
 
-def test_setup_logging_is_idempotent(tmp_path, isolated_root_logger, clean_env):
+def test_setup_logging_is_idempotent(
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     """Calling main() twice (tests, reloads) must not stack file handlers."""
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
 
@@ -115,7 +127,9 @@ def test_setup_logging_is_idempotent(tmp_path, isolated_root_logger, clean_env):
     assert len(file_handlers) == 1
 
 
-def test_setup_logging_creates_missing_directory(tmp_path, isolated_root_logger, clean_env):
+def test_setup_logging_creates_missing_directory(
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     """First run must create ~/.saldeosmart/logs/ if it doesn't exist."""
     target = tmp_path / "nested" / "does" / "not" / "exist"
     clean_env.setenv("SALDEO_LOG_DIR", str(target))
@@ -127,8 +141,11 @@ def test_setup_logging_creates_missing_directory(tmp_path, isolated_root_logger,
 
 
 def test_setup_logging_default_location_is_under_home(
-    isolated_root_logger, clean_env, monkeypatch, tmp_path
-):
+    isolated_root_logger: logging.Logger,
+    clean_env: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """Without SALDEO_LOG_DIR, the file lives under $HOME/.saldeosmart/logs."""
     fake_home = tmp_path / "home"
     fake_home.mkdir()
@@ -139,7 +156,9 @@ def test_setup_logging_default_location_is_under_home(
     assert log_file == fake_home / ".saldeosmart" / "logs" / "saldeosmart.log"
 
 
-def test_setup_logging_honors_log_level(tmp_path, isolated_root_logger, clean_env):
+def test_setup_logging_honors_log_level(
+    tmp_path: Path, isolated_root_logger: logging.Logger, clean_env: pytest.MonkeyPatch
+) -> None:
     clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
     clean_env.setenv("SALDEO_LOG_LEVEL", "DEBUG")
 

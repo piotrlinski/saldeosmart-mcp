@@ -11,18 +11,18 @@ from saldeosmart_mcp.errors import ItemError, SaldeoError
 from saldeosmart_mcp.tools._runtime import _error_payload
 
 
-def test_error_payload_minimal():
+def test_error_payload_minimal() -> None:
     e = SaldeoError(code="4302", message="User is locked")
     assert _error_payload(e) == {"error": "4302", "message": "User is locked"}
 
 
-def test_error_payload_includes_http_status_when_present():
+def test_error_payload_includes_http_status_when_present() -> None:
     e = SaldeoError(code="4001", message="Invalid signature", http_status=403)
     payload = _error_payload(e)
     assert payload["http_status"] == 403
 
 
-def test_error_payload_includes_per_item_details():
+def test_error_payload_includes_per_item_details() -> None:
     e = SaldeoError(
         code="VALIDATION",
         message="some items failed",
@@ -38,7 +38,7 @@ def test_error_payload_includes_per_item_details():
     assert payload["details"][1]["item_id"] == "2"
 
 
-def test_error_payload_omits_optional_fields_when_absent():
+def test_error_payload_omits_optional_fields_when_absent() -> None:
     e = SaldeoError(code="X", message="y")
     payload = _error_payload(e)
     assert "http_status" not in payload
