@@ -19,6 +19,7 @@ from __future__ import annotations
 # `_runtime` is fully initialized before the first tool body runs regardless of
 # the order in this file (isort puts `from .` before `from ._runtime`).
 from . import (
+    accounting_close,
     bank,
     catalog,
     companies,
@@ -38,6 +39,7 @@ from ._runtime import (
     saldeo_call,
     summarize_merge,
 )
+from .accounting_close import merge_declarations, renew_assurances
 from .bank import list_bank_statements
 from .catalog import (
     merge_articles,
@@ -104,6 +106,7 @@ __all__ = [
     "merge_categories",
     "merge_contractors",
     "merge_descriptions",
+    "merge_declarations",
     "merge_dimensions",
     "merge_document_dimensions",
     "merge_fees",
@@ -111,6 +114,7 @@ __all__ = [
     "merge_payment_methods",
     "merge_registers",
     "recognize_documents",
+    "renew_assurances",
     "sync_documents",
     "synchronize_companies",
     "update_documents",
@@ -123,6 +127,7 @@ __all__ = [
     "saldeo_call",
     "summarize_merge",
     # Submodule references (so static analyzers see them as used)
+    "accounting_close",
     "bank",
     "catalog",
     "companies",

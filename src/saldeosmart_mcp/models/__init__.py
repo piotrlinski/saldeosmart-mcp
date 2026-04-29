@@ -11,6 +11,22 @@ from __future__ import annotations
 
 from ..errors import ErrorResponse, ItemError, ItemErrorPayload, MergeResult
 from ..http.attachments import Attachment
+from .accounting_close import (
+    AssuranceCompanyDetailsInput,
+    AssuranceDetailsInput,
+    AssuranceEmployeesDetailsInput,
+    AssuranceItemInput,
+    AssurancePartnerDetailsInput,
+    AssurancePersonalDetailsInput,
+    AssuranceRenewInput,
+    CloseAttachmentInput,
+    CloseAttachmentType,
+    DeclarationMergeInput,
+    DeclarationTaxInput,
+    PeriodType,
+    PersonIdType,
+    TaxDetailsInput,
+)
 from .bank import BankOperation, BankStatement, BankStatementList
 from .catalog import (
     ArticleInput,
@@ -60,6 +76,13 @@ from .personnel import (
 
 __all__ = [
     "ArticleInput",
+    "AssuranceCompanyDetailsInput",
+    "AssuranceDetailsInput",
+    "AssuranceEmployeesDetailsInput",
+    "AssuranceItemInput",
+    "AssurancePartnerDetailsInput",
+    "AssurancePersonalDetailsInput",
+    "AssuranceRenewInput",
     "Attachment",
     "BankAccount",
     "BankAccountInput",
@@ -67,6 +90,8 @@ __all__ = [
     "BankStatement",
     "BankStatementList",
     "CategoryInput",
+    "CloseAttachmentInput",
+    "CloseAttachmentType",
     "Company",
     "CompanyList",
     "CompanySynchronizeInput",
@@ -74,6 +99,8 @@ __all__ = [
     "ContractType",
     "ContractorInput",
     "ContractorList",
+    "DeclarationMergeInput",
+    "DeclarationTaxInput",
     "DescriptionInput",
     "DimensionInput",
     "DimensionValueInput",
@@ -106,6 +133,8 @@ __all__ = [
     "ItemErrorPayload",
     "MergeResult",
     "PaymentMethodInput",
+    "PeriodType",
+    "PersonIdType",
     "PersonnelDocument",
     "PersonnelDocumentAddInput",
     "PersonnelDocumentList",
@@ -113,4 +142,5 @@ __all__ = [
     "RecognizeOptionInput",
     "RegisterInput",
     "SplitMode",
+    "TaxDetailsInput",
 ]

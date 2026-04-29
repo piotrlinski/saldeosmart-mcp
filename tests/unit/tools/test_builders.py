@@ -24,10 +24,19 @@ from xml.etree import ElementTree as ET
 from saldeosmart_mcp.http.attachments import Attachment, PreparedAttachment
 from saldeosmart_mcp.models import (
     ArticleInput,
+    AssuranceCompanyDetailsInput,
+    AssuranceEmployeesDetailsInput,
+    AssuranceItemInput,
+    AssurancePartnerDetailsInput,
+    AssurancePersonalDetailsInput,
+    AssuranceRenewInput,
     BankAccountInput,
     CategoryInput,
+    CloseAttachmentInput,
     CompanySynchronizeInput,
     ContractorInput,
+    DeclarationMergeInput,
+    DeclarationTaxInput,
     DescriptionInput,
     DimensionInput,
     DimensionValueInput,
@@ -49,12 +58,17 @@ from saldeosmart_mcp.models import (
     PersonnelDocumentAddInput,
     RecognizeOptionInput,
     RegisterInput,
+    TaxDetailsInput,
 )
 from saldeosmart_mcp.tools._builders import (
     build_folder_xml,
     build_simple_merge_xml,
 )
 from saldeosmart_mcp.tools._runtime import summarize_merge
+from saldeosmart_mcp.tools.accounting_close import (
+    _build_assurance_renew_xml,
+    _build_declaration_merge_xml,
+)
 from saldeosmart_mcp.tools.catalog import (
     _build_article_merge_xml,
     _build_fee_merge_xml,
@@ -654,7 +668,8 @@ def test_financial_balance_merge_emits_folder_then_balance() -> None:
             income_month="100000.00",
             cost_month="40000.00",
             vat=FinancialBalanceVATInput(value="13800.00", value_to_shift="200.00"),
-        )
+        ),
+        prepared=[],
     )
     root = ET.fromstring(xml)
     children = list(root)
@@ -669,13 +684,14 @@ def test_financial_balance_merge_emits_folder_then_balance() -> None:
 
 def test_financial_balance_merge_omits_optional_blocks() -> None:
     xml = _build_financial_balance_merge_xml(
-        FinancialBalanceMergeInput(year=2026, month=4)
+        FinancialBalanceMergeInput(year=2026, month=4), prepared=[]
     )
     fb = ET.fromstring(xml).find("FINANCIAL_BALANCE")
     assert fb is not None
     assert fb.find("VAT") is None
     assert fb.find("INCOME_MONTH") is None
     assert fb.find("COST_MONTH") is None
+    assert fb.find("ATTACHMENTS") is None
 
 
 # ---- _build_document_add_xml ----------------------------------------------------
@@ -823,3 +839,189 @@ def test_personnel_document_add_minimum_fields() -> None:
     assert el.find("EMPLOYEE_ID") is None
     assert el.find("NUMBER") is None
     assert el.find("DESCRIPTION") is None
+
+
+# ---- _build_declaration_merge_xml -----------------------------------------------
+
+
+def test_declaration_merge_emits_folder_and_taxes_in_order() -> None:
+    """SSK02: <ROOT><FOLDER/><TAXES><TAX>...</TAX></TAXES></ROOT>."""
+    declarations = DeclarationMergeInput(
+        year=2026,
+        month=4,
+        taxes=[
+            DeclarationTaxInput(
+                declaration_program_id="PIT-37/2026/04",
+                tax_details=TaxDetailsInput(
+                    type="PIT37",
+                    period="04/2026",
+                    period_type="MONTH",
+                    deadline="2026-05-20",
+                    tax_value="100.00",
+                ),
+            )
+        ],
+    )
+    xml = _build_declaration_merge_xml(declarations, prepared=[])
+    root = ET.fromstring(xml)
+    assert [c.tag for c in root] == ["FOLDER", "TAXES"]
+    assert root.findtext("FOLDER/YEAR") == "2026"
+    tax = root.find("TAXES/TAX")
+    assert tax is not None
+    assert tax.findtext("DECLARATION_PROGRAM_ID") == "PIT-37/2026/04"
+    assert tax.findtext("TAX_DETAILS/PERIOD_TYPE") == "MONTH"
+    assert tax.find("ATTACHMENTS") is None
+
+
+def test_declaration_merge_threads_attachments_per_tax() -> None:
+    """Each TAX consumes its own slice of the prepared-attachment list."""
+    declarations = DeclarationMergeInput(
+        year=2026,
+        month=4,
+        taxes=[
+            DeclarationTaxInput(
+                declaration_program_id="A",
+                attachments=[
+                    CloseAttachmentInput(
+                        type="DECLARATION", name="a1",
+                        attachment=Attachment(path="/x/a1.pdf"),
+                    ),
+                ],
+            ),
+            DeclarationTaxInput(
+                declaration_program_id="B",
+                attachments=[
+                    CloseAttachmentInput(
+                        type="REPORT", name="b1",
+                        attachment=Attachment(path="/x/b1.pdf"),
+                    ),
+                    CloseAttachmentInput(
+                        type="REPORT", name="b2",
+                        attachment=Attachment(path="/x/b2.pdf"),
+                    ),
+                ],
+            ),
+        ],
+    )
+    prepared = [
+        PreparedAttachment(key="1", form_key="attmnt_1", name="a1.pdf"),
+        PreparedAttachment(key="2", form_key="attmnt_2", name="b1.pdf"),
+        PreparedAttachment(key="3", form_key="attmnt_3", name="b2.pdf"),
+    ]
+    xml = _build_declaration_merge_xml(declarations, prepared)
+    taxes = ET.fromstring(xml).findall("TAXES/TAX")
+    assert len(taxes) == 2
+    a_atts = taxes[0].findall("ATTACHMENTS/ATTACHMENT")
+    assert len(a_atts) == 1
+    assert a_atts[0].findtext("ATTMNT") == "1"
+    assert a_atts[0].findtext("ATTMNT_NAME") == "a1.pdf"
+    b_atts = taxes[1].findall("ATTACHMENTS/ATTACHMENT")
+    assert len(b_atts) == 2
+    assert b_atts[0].findtext("ATTMNT") == "2"
+    assert b_atts[1].findtext("ATTMNT") == "3"
+
+
+# ---- _build_assurance_renew_xml -------------------------------------------------
+
+
+def test_assurance_renew_employees_variant_emits_zus_totals() -> None:
+    assurances = AssuranceRenewInput(
+        year=2026,
+        month=4,
+        assurances=[
+            AssuranceItemInput(
+                assurance_program_id="ZUS-04/2026",
+                details=AssuranceEmployeesDetailsInput(
+                    period="04/2026",
+                    deadline="2026-05-15",
+                    zus_51="1000.00",
+                    zus_52="200.00",
+                ),
+            )
+        ],
+    )
+    xml = _build_assurance_renew_xml(assurances, prepared=[])
+    details = ET.fromstring(xml).find("ASSURANCES/ASSURANCE/ASSURANCE_DETAILS")
+    assert details is not None
+    assert details.findtext("TYPE") == "EMPLOYEES"
+    assert details.findtext("ZUS-51") == "1000.00"
+    assert details.findtext("ZUS-52") == "200.00"
+    assert details.find("ZUS-53") is None
+
+
+def test_assurance_renew_personal_variant_emits_person_block() -> None:
+    assurances = AssuranceRenewInput(
+        year=2026,
+        month=4,
+        assurances=[
+            AssuranceItemInput(
+                assurance_program_id="EMP-1",
+                details=AssurancePersonalDetailsInput(
+                    last_name="Doe",
+                    first_name="Jane",
+                    person_id_type="PES",
+                    person_id="12345678901",
+                    period="04/2026",
+                    deadline="2026-05-15",
+                ),
+            )
+        ],
+    )
+    details = ET.fromstring(_build_assurance_renew_xml(assurances, prepared=[])).find(
+        "ASSURANCES/ASSURANCE/ASSURANCE_DETAILS"
+    )
+    assert details is not None
+    assert details.findtext("TYPE") == "PERSONAL"
+    assert details.findtext("LAST_NAME") == "Doe"
+    assert details.findtext("PERSON_ID_TYPE") == "PES"
+
+
+def test_assurance_renew_company_variant_uses_owner_fields() -> None:
+    assurances = AssuranceRenewInput(
+        year=2026,
+        month=4,
+        assurances=[
+            AssuranceItemInput(
+                assurance_program_id="OWNER",
+                details=AssuranceCompanyDetailsInput(
+                    period="04/2026",
+                    deadline="2026-05-15",
+                    zus_contribution="900.00",
+                ),
+            )
+        ],
+    )
+    details = ET.fromstring(_build_assurance_renew_xml(assurances, prepared=[])).find(
+        "ASSURANCES/ASSURANCE/ASSURANCE_DETAILS"
+    )
+    assert details is not None
+    assert details.findtext("TYPE") == "COMPANY"
+    assert details.findtext("ZUS_CONTRIBUTION") == "900.00"
+    assert details.find("LAST_NAME") is None  # not the personal/partner branch
+
+
+def test_assurance_renew_partner_variant_emits_underpayment() -> None:
+    assurances = AssuranceRenewInput(
+        year=2026,
+        month=4,
+        assurances=[
+            AssuranceItemInput(
+                assurance_program_id="P-1",
+                details=AssurancePartnerDetailsInput(
+                    last_name="Doe",
+                    first_name="Pat",
+                    person_id_type="NIP",
+                    person_id="9876543210",
+                    period="04/2026",
+                    deadline="2026-05-15",
+                    zus_underpayment="50.00",
+                ),
+            )
+        ],
+    )
+    details = ET.fromstring(_build_assurance_renew_xml(assurances, prepared=[])).find(
+        "ASSURANCES/ASSURANCE/ASSURANCE_DETAILS"
+    )
+    assert details is not None
+    assert details.findtext("TYPE") == "PARTNER"
+    assert details.findtext("ZUS_UNDERPAYMENT") == "50.00"

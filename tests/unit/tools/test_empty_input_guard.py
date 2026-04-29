@@ -18,6 +18,14 @@ from typing import Any
 import pytest
 
 from saldeosmart_mcp.errors import ErrorResponse
+from saldeosmart_mcp.models import (
+    AssuranceRenewInput,
+    DeclarationMergeInput,
+)
+from saldeosmart_mcp.models import (
+    ErrorResponse as ErrorResponseModel,
+)
+from saldeosmart_mcp.tools.accounting_close import merge_declarations, renew_assurances
 from saldeosmart_mcp.tools.catalog import (
     merge_articles,
     merge_categories,
@@ -75,4 +83,26 @@ def test_empty_list_returns_empty_input_error(
         kwargs["company_program_id"] = "test-company"
     result = tool(**kwargs)
     assert isinstance(result, ErrorResponse)
+    assert result.error == "EMPTY_INPUT"
+
+
+def test_merge_declarations_empty_taxes_returns_empty_input_error() -> None:
+    """declaration.merge takes a single DeclarationMergeInput; an empty
+    `taxes` list short-circuits at the tool level."""
+    result = merge_declarations(
+        company_program_id="test-company",
+        declarations=DeclarationMergeInput(year=2026, month=4, taxes=[]),
+    )
+    assert isinstance(result, ErrorResponseModel)
+    assert result.error == "EMPTY_INPUT"
+
+
+def test_renew_assurances_empty_assurances_returns_empty_input_error() -> None:
+    """assurance.renew takes a single AssuranceRenewInput; an empty
+    `assurances` list short-circuits at the tool level."""
+    result = renew_assurances(
+        company_program_id="test-company",
+        assurances=AssuranceRenewInput(year=2026, month=4, assurances=[]),
+    )
+    assert isinstance(result, ErrorResponseModel)
     assert result.error == "EMPTY_INPUT"

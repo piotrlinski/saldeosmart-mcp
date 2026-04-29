@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from xml.etree import ElementTree as ET
 
+from ..http.attachments import PreparedAttachment, prepare_attachments
 from ..http.xml import set_text
-from ..models import (
-    ErrorResponse,
-    FinancialBalanceMergeInput,
-    MergeResult,
-)
+from ..models import ErrorResponse, FinancialBalanceMergeInput, MergeResult
+from ._builders import append_close_attachments
 from ._runtime import get_client, mcp, saldeo_call, summarize_merge
 
 
@@ -26,22 +24,31 @@ def merge_financial_balance(
     ``MERGED`` when the folder already had a balance, ``CREATED`` when it
     didn't.
 
-    Optional ``<ATTACHMENTS>`` are part of the spec but not yet wrapped;
-    that's a follow-up once the attachment helper lands.
+    Optional ``attachments`` carry source-of-truth files (the source
+    spreadsheet, a scanned report, etc.). Each attachment is read at tool
+    invocation time and uploaded as a separate ``attmnt_N`` form field.
     """
-    xml = _build_financial_balance_merge_xml(balance)
+    prepared, form = prepare_attachments(
+        [a.attachment for a in balance.attachments]
+    )
+    xml = _build_financial_balance_merge_xml(balance, prepared)
     root = get_client().post_command(
         "/api/xml/1.15/financial_balance/merge",
         xml_command=xml,
         query={"company_program_id": company_program_id},
+        extra_form=form,
     )
     return summarize_merge(root, total=1)
 
 
-def _build_financial_balance_merge_xml(balance: FinancialBalanceMergeInput) -> str:
+def _build_financial_balance_merge_xml(
+    balance: FinancialBalanceMergeInput,
+    prepared: list[PreparedAttachment],
+) -> str:
     # Element order matches financial_balance_merge_request.xsd:
     # <ROOT><FOLDER><YEAR/><MONTH/></FOLDER>
-    #       <FINANCIAL_BALANCE><INCOME_MONTH/><COST_MONTH/><VAT/></FINANCIAL_BALANCE>
+    #       <FINANCIAL_BALANCE><INCOME_MONTH/><COST_MONTH/><VAT/>
+    #                          <ATTACHMENTS/></FINANCIAL_BALANCE>
     # </ROOT>
     root = ET.Element("ROOT")
     folder = ET.SubElement(root, "FOLDER")
@@ -55,4 +62,6 @@ def _build_financial_balance_merge_xml(balance: FinancialBalanceMergeInput) -> s
         vat = ET.SubElement(fb, "VAT")
         set_text(vat, "VALUE", balance.vat.value)
         set_text(vat, "VALUE_TO_SHIFT", balance.vat.value_to_shift)
+    if balance.attachments:
+        append_close_attachments(fb, balance.attachments, prepared)
     return ET.tostring(root, encoding="unicode")
