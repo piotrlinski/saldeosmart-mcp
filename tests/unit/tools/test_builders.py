@@ -33,6 +33,8 @@ from saldeosmart_mcp.models import (
     BankAccountInput,
     CategoryInput,
     CloseAttachmentInput,
+    CompanyCreateBankAccountInput,
+    CompanyCreateInput,
     CompanySynchronizeInput,
     ContractorInput,
     DeclarationMergeInput,
@@ -62,6 +64,13 @@ from saldeosmart_mcp.models import (
     FinancialBalanceMergeInput,
     FinancialBalanceVATInput,
     ForeignCodeInput,
+    InvoiceAddBankAccountInput,
+    InvoiceAddDiscountInput,
+    InvoiceAddInput,
+    InvoiceAddItemInput,
+    InvoiceAddNewTransportVehicleInput,
+    InvoiceAddPaymentInput,
+    InvoiceAddSaleDateRangeInput,
     PaymentMethodInput,
     PersonnelDocumentAddInput,
     RecognizeOptionInput,
@@ -81,7 +90,10 @@ from saldeosmart_mcp.tools.catalog import (
     _build_article_merge_xml,
     _build_fee_merge_xml,
 )
-from saldeosmart_mcp.tools.companies import _build_company_synchronize_xml
+from saldeosmart_mcp.tools.companies import (
+    _build_company_create_xml,
+    _build_company_synchronize_xml,
+)
 from saldeosmart_mcp.tools.contractors import _build_contractor_merge_xml
 from saldeosmart_mcp.tools.dimensions import _build_dimension_merge_xml
 from saldeosmart_mcp.tools.documents import (
@@ -99,7 +111,10 @@ from saldeosmart_mcp.tools.documents import (
     _build_search_xml,
 )
 from saldeosmart_mcp.tools.financial_balance import _build_financial_balance_merge_xml
-from saldeosmart_mcp.tools.invoices import _build_invoice_id_groups_xml
+from saldeosmart_mcp.tools.invoices import (
+    _build_invoice_add_xml,
+    _build_invoice_id_groups_xml,
+)
 from saldeosmart_mcp.tools.personnel import (
     _build_employee_add_xml,
     _build_personnel_document_add_xml,
@@ -1158,3 +1173,152 @@ def test_document_import_threads_supporting_attachments_after_source_file() -> N
     assert extras[0].findtext("DESCRIPTION") == "annex 1"
     assert extras[1].findtext("ATTMNT") == "3"
     assert extras[1].find("DESCRIPTION") is None
+
+
+# ---- _build_invoice_add_xml -----------------------------------------------------
+
+
+def test_invoice_add_emits_required_fields_and_at_least_one_item() -> None:
+    invoice = InvoiceAddInput(
+        issue_date="2026-04-30",
+        according_to_agreement=True,
+        purchaser_contractor_id=42,
+        currency_iso4217="PLN",
+        payment_type="TRANSFER",
+        items=[
+            InvoiceAddItemInput(
+                name="Office Chair", amount="10", unit="pieces",
+                unit_value="159.99", rate="23",
+            ),
+        ],
+    )
+    el = ET.fromstring(_build_invoice_add_xml(invoice)).find("INVOICE")
+    assert el is not None
+    assert el.findtext("ISSUE_DATE") == "2026-04-30"
+    assert el.findtext("ACCORDING_TO_AGREEMENT") == "true"
+    assert el.findtext("PURCHASER_CONTRACTOR_ID") == "42"
+    assert el.findtext("CURRENCY_ISO4217") == "PLN"
+    assert el.findtext("PAYMENT_TYPE") == "TRANSFER"
+    items = el.findall("INVOICE_ITEMS/INVOICE_ITEM")
+    assert len(items) == 1
+    assert items[0].findtext("NAME") == "Office Chair"
+    assert items[0].findtext("RATE") == "23"
+
+
+def test_invoice_add_choice_picks_sale_date_range_over_sale_date() -> None:
+    """xs:choice between SALE_DATE and (SALE_DATE_FROM, SALE_DATE_TO)."""
+    invoice = InvoiceAddInput(
+        issue_date="2026-04-30",
+        according_to_agreement=True,
+        purchaser_contractor_id=1,
+        currency_iso4217="PLN",
+        payment_type="CASH",
+        items=[InvoiceAddItemInput(
+            name="Service", amount="1", unit="ea", unit_value="100"
+        )],
+        sale_date="2026-04-30",
+        sale_date_range=InvoiceAddSaleDateRangeInput(
+            from_date="2026-04-01", to_date="2026-04-30"
+        ),
+    )
+    el = ET.fromstring(_build_invoice_add_xml(invoice)).find("INVOICE")
+    assert el is not None
+    assert el.findtext("SALE_DATE_FROM") == "2026-04-01"
+    assert el.findtext("SALE_DATE_TO") == "2026-04-30"
+    # SALE_DATE is suppressed when the range is set.
+    assert el.find("SALE_DATE") is None
+
+
+def test_invoice_add_emits_discount_payments_and_vehicle_blocks() -> None:
+    invoice = InvoiceAddInput(
+        issue_date="2026-04-30",
+        according_to_agreement=False,
+        purchaser_contractor_id=1,
+        currency_iso4217="EUR",
+        payment_type="TRANSFER",
+        items=[
+            InvoiceAddItemInput(
+                name="Conf Table", amount="3", unit="pieces", unit_value="899.99",
+                discount=InvoiceAddDiscountInput(type="PERCENTAGE", value="10"),
+                rate="ZW",
+            ),
+        ],
+        bank_account=InvoiceAddBankAccountInput(
+            number="46101014690081782231000000", bic_swift="DEUTPLPK"
+        ),
+        payments=[
+            InvoiceAddPaymentInput(payment_amount="50", payment_date="2026-05-15"),
+        ],
+        new_transport_vehicle=InvoiceAddNewTransportVehicleInput(
+            vehicle_type="LAND", admission_date="2026-04-01", usage_metrics=5000,
+        ),
+    )
+    el = ET.fromstring(_build_invoice_add_xml(invoice)).find("INVOICE")
+    assert el is not None
+    item = el.find("INVOICE_ITEMS/INVOICE_ITEM")
+    assert item is not None
+    assert item.findtext("DISCOUNT/DISCOUNT_TYPE") == "PERCENTAGE"
+    assert item.findtext("DISCOUNT/DISCOUNT_VALUE") == "10"
+    assert el.findtext("BANK_ACCOUNT/BIC_SWIFT") == "DEUTPLPK"
+    assert el.findtext("INVOICE_PAYMENTS/PAYMENT_AMOUNT") == "50"
+    assert el.findtext("NEW_TRANSPORT_VEHICLE/VEHICLE_TYPE") == "LAND"
+
+
+# ---- _build_company_create_xml --------------------------------------------------
+
+
+def test_company_create_emits_required_fields_with_bank_accounts() -> None:
+    """company.create: METAINF/PRODUCER (when set) leads, then COMPANIES/COMPANY
+    in XSD order."""
+    companies = [
+        CompanyCreateInput(
+            company_program_id="ERP-001",
+            username="admin1",
+            email="admin@example.com",
+            short_name="ACME",
+            full_name="Acme Sp. z o.o.",
+            vat_number="1234567890",
+            city="Krakow",
+            postcode="30-001",
+            street="Rynek 1",
+            bank_accounts=[
+                CompanyCreateBankAccountInput(
+                    number="46101014690081782231000000",
+                    bank_name="Bank A",
+                    bic_number="BKEAPLPW",
+                    currency_iso4217="PLN",
+                ),
+            ],
+            producer="ERP-X",
+        )
+    ]
+    root = ET.fromstring(_build_company_create_xml(companies))
+    assert root.findtext("METAINF/PRODUCER") == "ERP-X"
+    company = root.find("COMPANIES/COMPANY")
+    assert company is not None
+    assert company.findtext("COMPANY_PROGRAM_ID") == "ERP-001"
+    assert company.findtext("EMAIL") == "admin@example.com"
+    assert company.findtext("SHORT_NAME") == "ACME"
+    bank = company.find("BANK_ACCOUNTS/BANK_ACCOUNT")
+    assert bank is not None
+    assert bank.findtext("NUMBER") == "46101014690081782231000000"
+    assert bank.findtext("BIC_NUMBER") == "BKEAPLPW"
+
+
+def test_company_create_omits_metainf_when_no_producer() -> None:
+    companies = [
+        CompanyCreateInput(
+            company_program_id="ERP-002",
+            username="admin2",
+            email="x@y.io",
+            short_name="X",
+            full_name="X Ltd",
+            vat_number="9999999999",
+            city="Warsaw",
+            postcode="00-001",
+            street="Marszalkowska 1",
+        )
+    ]
+    root = ET.fromstring(_build_company_create_xml(companies))
+    assert root.find("METAINF") is None
+    assert root.find("COMPANIES/COMPANY") is not None

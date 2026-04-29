@@ -34,7 +34,7 @@ from saldeosmart_mcp.tools.catalog import (
     merge_payment_methods,
     merge_registers,
 )
-from saldeosmart_mcp.tools.companies import synchronize_companies
+from saldeosmart_mcp.tools.companies import create_companies, synchronize_companies
 from saldeosmart_mcp.tools.contractors import merge_contractors
 from saldeosmart_mcp.tools.dimensions import merge_dimensions
 from saldeosmart_mcp.tools.documents import (
@@ -67,6 +67,7 @@ from saldeosmart_mcp.tools.personnel import add_employees, add_personnel_documen
         (merge_contractors, "contractors", {}, True),
         (merge_dimensions, "dimensions", {}, True),
         (synchronize_companies, "companies", {}, False),
+        (create_companies, "companies", {}, False),
         (add_employees, "employees", {}, True),
         (add_documents, "documents", {}, True),
         (add_personnel_documents, "documents", {}, True),

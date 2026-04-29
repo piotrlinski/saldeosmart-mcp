@@ -49,7 +49,7 @@ from .catalog import (
     merge_payment_methods,
     merge_registers,
 )
-from .companies import list_companies, synchronize_companies
+from .companies import create_companies, list_companies, synchronize_companies
 from .contractors import list_contractors, merge_contractors
 from .dimensions import merge_dimensions
 from .documents import (
@@ -70,6 +70,7 @@ from .documents import (
 )
 from .financial_balance import merge_financial_balance
 from .invoices import (
+    add_invoice,
     get_invoice_id_list,
     get_invoices_by_id,
     list_invoices,
@@ -99,9 +100,11 @@ __all__ = [
     # Writes
     "add_documents",
     "add_employees",
+    "add_invoice",
     "add_personnel_documents",
     "add_recognize_document",
     "correct_documents",
+    "create_companies",
     "delete_documents",
     "import_documents",
     "merge_articles",

@@ -40,7 +40,13 @@ from .catalog import (
     RegisterInput,
 )
 from .common import BankAccount, BankAccountInput
-from .companies import Company, CompanyList, CompanySynchronizeInput
+from .companies import (
+    Company,
+    CompanyCreateBankAccountInput,
+    CompanyCreateInput,
+    CompanyList,
+    CompanySynchronizeInput,
+)
 from .contractors import Contractor, ContractorInput, ContractorList
 from .documents import (
     ContractorAreaType,
@@ -75,7 +81,19 @@ from .documents import (
     SplitMode,
 )
 from .financial_balance import FinancialBalanceMergeInput, FinancialBalanceVATInput
-from .invoices import InvoiceIdGroups, InvoiceList
+from .invoices import (
+    DiscountType,
+    InvoiceAddBankAccountInput,
+    InvoiceAddDiscountInput,
+    InvoiceAddInput,
+    InvoiceAddItemInput,
+    InvoiceAddNewTransportVehicleInput,
+    InvoiceAddPaymentInput,
+    InvoiceAddSaleDateRangeInput,
+    InvoiceIdGroups,
+    InvoiceList,
+    VehicleType,
+)
 from .personnel import (
     ContractType,
     Employee,
@@ -107,6 +125,8 @@ __all__ = [
     "CloseAttachmentInput",
     "CloseAttachmentType",
     "Company",
+    "CompanyCreateBankAccountInput",
+    "CompanyCreateInput",
     "CompanyList",
     "CompanySynchronizeInput",
     "Contractor",
@@ -119,6 +139,7 @@ __all__ = [
     "DescriptionInput",
     "DimensionInput",
     "DimensionValueInput",
+    "DiscountType",
     "Document",
     "DocumentAddInput",
     "DocumentAddRecognizeInput",
@@ -155,6 +176,13 @@ __all__ = [
     "FinancialBalanceMergeInput",
     "FinancialBalanceVATInput",
     "ForeignCodeInput",
+    "InvoiceAddBankAccountInput",
+    "InvoiceAddDiscountInput",
+    "InvoiceAddInput",
+    "InvoiceAddItemInput",
+    "InvoiceAddNewTransportVehicleInput",
+    "InvoiceAddPaymentInput",
+    "InvoiceAddSaleDateRangeInput",
     "InvoiceIdGroups",
     "InvoiceList",
     "ItemError",
@@ -171,4 +199,5 @@ __all__ = [
     "RegisterInput",
     "SplitMode",
     "TaxDetailsInput",
+    "VehicleType",
 ]

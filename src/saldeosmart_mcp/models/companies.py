@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from xml.etree import ElementTree as ET
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..http.xml import el_int, el_text
 
@@ -54,3 +54,50 @@ class CompanySynchronizeInput(BaseModel):
 
     company_id: int
     company_program_id: str
+
+
+class CompanyCreateBankAccountInput(BaseModel):
+    """One ``<BANK_ACCOUNT>`` row inside a ``CompanyCreateInput``.
+
+    The first account in the list is treated as the primary. ``name`` is
+    optional; everything else is required by the spec.
+    """
+
+    number: str
+    bank_name: str
+    bic_number: str
+    currency_iso4217: str
+    name: str | None = None
+
+
+class CompanyCreateInput(BaseModel):
+    """One ``<COMPANY>`` body for ``company.create`` (SS01).
+
+    Saldeo creates a new client company plus its admin user in one shot.
+    Required: ``company_program_id``, ``username``, ``email``, ``short_name``
+    (max 8 chars), ``full_name``, ``vat_number``, ``city``, ``postcode``,
+    ``street``, plus at least one bank account.
+
+    Bank accounts are unusual: the spec says the section is ``O`` (optional)
+    at the wrapper level but warns "if missing Saldeo synthesizes a
+    placeholder". Pass real accounts whenever possible; an empty list omits
+    the wrapper entirely.
+    """
+
+    company_program_id: str
+    username: str
+    email: str
+    short_name: str
+    full_name: str
+    vat_number: str
+    city: str
+    postcode: str
+    street: str
+    first_name: str | None = None
+    last_name: str | None = None
+    telephone: str | None = None
+    contact_person: str | None = None
+    bank_accounts: list[CompanyCreateBankAccountInput] = Field(default_factory=list)
+    zus_bank_account: str | None = None
+    send_email: bool | None = None
+    producer: str | None = None  # METAINF/PRODUCER override
