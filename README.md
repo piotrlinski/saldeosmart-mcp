@@ -37,6 +37,7 @@ MCP server for [SaldeoSMART](https://www.saldeosmart.pl/) — exposes tools to r
 | Tool | Purpose |
 | ---- | ------- |
 | `synchronize_companies`      | Pin Saldeo company IDs to your ERP program IDs (SS15) |
+| `create_companies`           | Provision new client companies + admin users (SS01) |
 | `merge_contractors`          | Add or update contractors (SS02) |
 | `merge_categories`           | Add or update document categories (SS09) |
 | `merge_payment_methods`      | Add or update payment methods (SS11) |
@@ -46,16 +47,22 @@ MCP server for [SaldeoSMART](https://www.saldeosmart.pl/) — exposes tools to r
 | `merge_articles`             | Add or update the article catalog (SS21) |
 | `merge_fees`                 | Add or update accounting-firm fees for a month (SSK04) |
 | `merge_financial_balance`    | Set monthly income / cost / VAT for a company (SSK01) |
+| `merge_declarations`         | Sync tax declarations + attachments for a folder (SSK02) |
+| `renew_assurances`           | Sync ZUS / social insurance for a folder (SSK03) |
 | `merge_document_dimensions`  | Set dimension values on existing documents (SS20) |
 | `add_documents`              | Upload cost documents to a (year, month) folder (SS05) |
+| `add_recognize_document`     | Upload a document and trigger OCR in one round-trip (AE01) |
+| `correct_documents`          | Overwrite OCR-extracted fields on existing documents (AE02) |
+| `import_documents`           | Bulk import structured documents with full archival metadata (3.0) |
 | `update_documents`           | Edit existing documents (SS17) |
 | `delete_documents`           | Delete documents by ID (SS16, destructive) |
 | `recognize_documents`        | Trigger OCR on uploaded documents (SS06) |
 | `sync_documents`             | Push accounting numbering / status back to Saldeo (SS13) |
+| `add_invoice`                | Issue a sales invoice with line items + payments (SSK06, 3.1) |
 | `add_employees`              | Create or update employees in Personnel (P03) |
 | `add_personnel_documents`    | Upload HR documents with attachments (P04) |
 
-A handful of attachment-bearing endpoints are still pending: `declaration.merge` (SSK02), `assurance.renew` (SSK03), `document.import` (3.0), `document.correct` (AE02), `document.add_recognize` (AE01), plus `invoice.add` (SSK06) and `company.create` (SS01). The low-level `SaldeoClient.post_command(..., extra_form=...)` plumbing and the new `Attachment` / `prepare_attachments` helpers (see `src/saldeosmart_mcp/http/attachments.py`) are ready to use.
+Every documented SaldeoSMART REST endpoint is now wrapped. Attachment-bearing endpoints accept :class:`saldeosmart_mcp.http.Attachment` inputs (path + optional display-name override); the helper at `src/saldeosmart_mcp/http/attachments.py` handles base64 encoding and the matching `attmnt_N` form-field plumbing.
 
 ### Choosing the right tool
 
@@ -361,35 +368,38 @@ src/saldeosmart_mcp/
 │   ├── xml.py         # el_text/el_int/el_bool/set_text + URL redaction
 │   └── attachments.py # Attachment + prepare_attachments — file → base64 + form
 │
-├── models/            # everything that crosses the MCP boundary as JSON
+├── models/                  # everything that crosses the MCP boundary as JSON
 │   ├── common.py             # cross-resource (BankAccount, BankAccountInput)
-│   ├── companies.py          # Company, CompanyList, CompanySynchronizeInput
+│   ├── companies.py          # Company, CompanySynchronizeInput, CompanyCreateInput
 │   ├── contractors.py        # Contractor(+List), ContractorInput
-│   ├── documents.py          # Document, DocumentList, DocumentIdGroups,
-│   │                         # DocumentAddInput, DocumentUpdateInput, …
-│   ├── invoices.py           # InvoiceList, InvoiceIdGroups
+│   ├── documents.py          # Document, DocumentAddInput, DocumentImportInput,
+│   │                         # DocumentCorrectInput, DocumentAddRecognizeInput, …
+│   ├── invoices.py           # InvoiceList, InvoiceIdGroups, InvoiceAddInput
 │   ├── bank.py               # BankStatement(+List), BankOperation
 │   ├── personnel.py          # Employee, EmployeeAddInput, PersonnelDocument,
 │   │                         # PersonnelDocumentAddInput
 │   ├── financial_balance.py  # FinancialBalanceMergeInput
+│   ├── accounting_close.py   # DeclarationMergeInput, AssuranceRenewInput,
+│   │                         # CloseAttachmentInput, the four ASSURANCE_DETAILS
+│   │                         # variants
 │   └── catalog.py            # CategoryInput, RegisterInput, ArticleInput, FeeInput, …
 │
-├── tools/             # @mcp.tool registry — one file per Saldeo resource
-│   ├── _runtime.py            # mcp = FastMCP(...), saldeo_call, get_client,
-│   │                          # summarize_merge, parse_collection
-│   ├── _builders.py           # generic XML builders shared across resources
-│   ├── companies.py           # list_companies, synchronize_companies
-│   ├── contractors.py         # list_/merge_contractors
-│   ├── documents.py           # list_/search_/add_/update_/delete_/recognize_/sync_,
-│   │                          # 3.0 ID-list
-│   ├── invoices.py            # list_/get_invoice_*
-│   ├── bank.py                # list_bank_statements
-│   ├── personnel.py           # list_employees, add_employees,
-│   │                          # list_/add_personnel_documents
-│   ├── financial_balance.py   # merge_financial_balance
-│   ├── dimensions.py          # merge_dimensions
-│   └── catalog.py     # categories, payment_methods, registers, descriptions,
-│                      # articles, fees
+├── tools/                   # @mcp.tool registry — one file per Saldeo resource
+│   ├── _runtime.py           # mcp = FastMCP(...), saldeo_call, get_client,
+│   │                         # summarize_merge, parse_collection
+│   ├── _builders.py          # generic XML builders + append_close_attachments
+│   ├── companies.py          # list_/synchronize_/create_companies
+│   ├── contractors.py        # list_/merge_contractors
+│   ├── documents.py          # list_/search_/add_/update_/delete_/recognize_/sync_/
+│   │                         # add_recognize_/correct_/import_, 3.0 ID-list
+│   ├── invoices.py           # list_/get_invoice_*, add_invoice
+│   ├── bank.py               # list_bank_statements
+│   ├── personnel.py          # list_/add_employees, list_/add_personnel_documents
+│   ├── financial_balance.py  # merge_financial_balance
+│   ├── accounting_close.py   # merge_declarations, renew_assurances
+│   ├── dimensions.py         # merge_dimensions
+│   └── catalog.py            # categories, payment_methods, registers,
+│                             # descriptions, articles, fees
 │
 └── server.py          # main() — sets up logging, imports tools, runs mcp.run()
                        # (kept at top level for the console-script entry point)
@@ -414,18 +424,9 @@ The spec says:
 
 The client serializes calls behind a lock to satisfy the no-concurrency rule. If you plan to make many requests, consider a server-side cache.
 
-## What's not yet covered
+## API coverage
 
-A few endpoints still aren't wrapped — the attachment plumbing landed with `add_documents` / `add_personnel_documents`, so the remaining gap is mostly mapping each XSD into a builder + Pydantic input:
-
-- `document.add_recognize` (AE01) and `document.correct` (AE02) — single attachment per request
-- `document.import` (3.0) — folder + nested archival metadata
-- `declaration.merge` (SSK02) and `assurance.renew` (SSK03) — batches with per-item attachment lists
-- `financial_balance.merge` (SSK01) optional attachments — the core call is wrapped; the optional `<ATTACHMENTS>` branch isn't yet
-- `invoice.add` (3.0/3.1, SSK06) — large payload, no attachments
-- `company.create` (SS01) — many required fields, low value for an interactive MCP session
-
-The lower-level `SaldeoClient.post_command(..., extra_form={"attmnt_1": base64_blob})` plus the `Attachment` / `prepare_attachments` helper already cover the file-handling plumbing, so adding these as tools is a follow-up rather than a redesign.
+Every documented SaldeoSMART REST endpoint is wrapped as an MCP tool. The `SaldeoClient.post_command(..., extra_form=...)` form-field plumbing plus the `Attachment` / `prepare_attachments` helper handle every attachment-bearing endpoint.
 
 ## Contributing
 
