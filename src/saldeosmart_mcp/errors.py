@@ -114,12 +114,17 @@ class MergeResult(BaseModel):
 
 # Per-item status fields used across batch endpoints. Field name varies:
 #   document/update      → UPDATE_STATUS, values UPDATED|NOT_VALID|ERROR
+#   document/correct     → UPDATE_STATUS, values CORRECTED|NOT_VALID|ERROR
 #   document/import      → STATUS,        values VALID|NOT_VALID
 #   personnel/document/* → STATUS,        values CREATED|CONFLICT|NOT_VALID
 #   employee/add         → STATUS,        values CREATED|CONFLICT|NOT_VALID
+#   company/synchronize  → STATUS,        values MERGED|NOT_VALID|CONFLICT
+#   *.merge / *.renew    → STATUS,        values MERGED|CREATED|RENEWED|...
 # Anything not in the "happy" set is treated as a failure.
 _ITEM_STATUS_TAGS = ("UPDATE_STATUS", "STATUS")
-_ITEM_OK_VALUES = frozenset({"UPDATED", "VALID", "CREATED", "OK"})
+_ITEM_OK_VALUES = frozenset(
+    {"UPDATED", "VALID", "CREATED", "OK", "MERGED", "CORRECTED", "RENEWED", "ADDED"}
+)
 
 # Element tags used to identify the item itself (for surfacing context in errors).
 _ITEM_ID_TAGS = (

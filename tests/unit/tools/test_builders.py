@@ -32,6 +32,9 @@ from saldeosmart_mcp.models import (
     DimensionInput,
     DimensionValueInput,
     DocumentAddInput,
+    DocumentAddRecognizeInput,
+    DocumentCorrectContractorInput,
+    DocumentCorrectInput,
     DocumentDimensionInput,
     DocumentDimensionValueInput,
     DocumentSyncInput,
@@ -60,7 +63,9 @@ from saldeosmart_mcp.tools.companies import _build_company_synchronize_xml
 from saldeosmart_mcp.tools.contractors import _build_contractor_merge_xml
 from saldeosmart_mcp.tools.dimensions import _build_dimension_merge_xml
 from saldeosmart_mcp.tools.documents import (
+    _build_document_add_recognize_xml,
     _build_document_add_xml,
+    _build_document_correct_xml,
     _build_document_delete_xml,
     _build_document_dimension_xml,
     _build_document_id_groups_xml,
@@ -732,6 +737,74 @@ def test_personnel_document_add_keeps_xsd_element_order() -> None:
     assert el.findtext("ATTMNT_NAME") == "scan.pdf"
     assert el.findtext("DOCUMENT_TYPE") == "PART_A"
     assert el.findtext("MARK_WHEN_DATE_OF_DUTY_EXPIRED") == "true"
+
+
+# ---- _build_document_add_recognize_xml ------------------------------------------
+
+
+def test_document_add_recognize_emits_required_fields_only_when_set() -> None:
+    """document.add_recognize: VAT_NUMBER + SPLIT_MODE always present;
+    DOCUMENT_TYPE / NO_ROTATE only when caller set them. No <ATTMNT> tag —
+    binary file goes through the attmnt_1 form field."""
+    xml = _build_document_add_recognize_xml(
+        DocumentAddRecognizeInput(
+            attachment=Attachment(path="/x/inv.pdf"),
+            vat_number="1234567890",
+            split_mode="AUTO_TWO_SIDED",
+            document_type="COST",
+            no_rotate=True,
+        )
+    )
+    el = ET.fromstring(xml).find("DOCUMENT")
+    assert el is not None
+    assert el.findtext("VAT_NUMBER") == "1234567890"
+    assert el.findtext("SPLIT_MODE") == "AUTO_TWO_SIDED"
+    assert el.findtext("DOCUMENT_TYPE") == "COST"
+    assert el.findtext("NO_ROTATE") == "true"
+    assert el.find("ATTMNT") is None
+
+
+# ---- _build_document_correct_xml ------------------------------------------------
+
+
+def test_document_correct_skips_contractor_when_omitted() -> None:
+    xml = _build_document_correct_xml(
+        [DocumentCorrectInput(document_id=42, number="FV-2026-1", self_learning=True)]
+    )
+    el = ET.fromstring(xml).find("DOCUMENTS/DOCUMENT")
+    assert el is not None
+    assert el.findtext("DOCUMENT_ID") == "42"
+    assert el.findtext("NUMBER") == "FV-2026-1"
+    assert el.find("CONTRACTOR") is None
+    assert el.findtext("SELF_LEARNING") == "true"
+
+
+def test_document_correct_emits_full_contractor_block() -> None:
+    xml = _build_document_correct_xml(
+        [
+            DocumentCorrectInput(
+                document_id=42,
+                contractor=DocumentCorrectContractorInput(
+                    short_name="ACME",
+                    full_name="Acme Sp. z o.o.",
+                    vat_number="1234567890",
+                    street="Rynek 1",
+                    city="Krakow",
+                    postcode="30-001",
+                ),
+            )
+        ]
+    )
+    contractor = ET.fromstring(xml).find("DOCUMENTS/DOCUMENT/CONTRACTOR")
+    assert contractor is not None
+    assert [c.tag for c in contractor] == [
+        "SHORT_NAME",
+        "FULL_NAME",
+        "VAT_NUMBER",
+        "STREET",
+        "CITY",
+        "POSTCODE",
+    ]
 
 
 def test_personnel_document_add_minimum_fields() -> None:

@@ -52,6 +52,8 @@ from .contractors import list_contractors, merge_contractors
 from .dimensions import merge_dimensions
 from .documents import (
     add_documents,
+    add_recognize_document,
+    correct_documents,
     delete_documents,
     get_document_id_list,
     get_documents_by_id,
@@ -95,6 +97,8 @@ __all__ = [
     "add_documents",
     "add_employees",
     "add_personnel_documents",
+    "add_recognize_document",
+    "correct_documents",
     "delete_documents",
     "merge_articles",
     "merge_categories",

@@ -29,6 +29,10 @@ from .contractors import Contractor, ContractorInput, ContractorList
 from .documents import (
     Document,
     DocumentAddInput,
+    DocumentAddRecognizeInput,
+    DocumentAddRecognizeResult,
+    DocumentCorrectContractorInput,
+    DocumentCorrectInput,
     DocumentDimensionInput,
     DocumentDimensionValueInput,
     DocumentIdGroups,
@@ -38,6 +42,7 @@ from .documents import (
     DocumentSyncInput,
     DocumentUpdateInput,
     RecognizeOptionInput,
+    SplitMode,
 )
 from .financial_balance import FinancialBalanceMergeInput, FinancialBalanceVATInput
 from .invoices import InvoiceIdGroups, InvoiceList
@@ -74,6 +79,10 @@ __all__ = [
     "DimensionValueInput",
     "Document",
     "DocumentAddInput",
+    "DocumentAddRecognizeInput",
+    "DocumentAddRecognizeResult",
+    "DocumentCorrectContractorInput",
+    "DocumentCorrectInput",
     "DocumentDimensionInput",
     "DocumentDimensionValueInput",
     "DocumentIdGroups",
@@ -103,4 +112,5 @@ __all__ = [
     "PersonnelDocumentType",
     "RecognizeOptionInput",
     "RegisterInput",
+    "SplitMode",
 ]

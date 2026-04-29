@@ -181,6 +181,96 @@ class DocumentAddInput(BaseModel):
     attachment: Attachment
 
 
+SplitMode = Literal[
+    "NO_SPLIT",
+    "SPLIT_ONE_SIDED",
+    "SPLIT_TWO_SIDED",
+    "AUTO_ONE_SIDED",
+    "AUTO_TWO_SIDED",
+]
+
+
+class DocumentAddRecognizeInput(BaseModel):
+    """Single document upload + OCR trigger for ``document.add_recognize`` (AE01).
+
+    Saldeo accepts one attachment per request; the file is delivered as the
+    ``attmnt_1`` form field and the XML carries only the OCR options.
+    """
+
+    attachment: Attachment
+    vat_number: str
+    split_mode: SplitMode = "NO_SPLIT"
+    document_type: Literal["COST", "SALE"] | None = None
+    no_rotate: bool | None = None
+
+
+class DocumentAddRecognizeResult(BaseModel):
+    """Result of ``document.add_recognize``.
+
+    ``status`` is one of ``SENT`` (success), ``NOT_VALID``, ``INSUFFICIENT_FUND``,
+    ``ERROR``. ``ocr_origin_id`` is the handle for ``list_recognized_documents``
+    once Saldeo finishes the OCR pass.
+    """
+
+    status: str
+    status_message: str | None = None
+    ocr_origin_id: int | None = None
+    cost: float | None = None
+    sent_document_count: int | None = None
+    sent_page_count: int | None = None
+    split_mode: str | None = None
+    no_rotate: bool | None = None
+    remaining_credits: float | None = None
+
+    @classmethod
+    def from_xml(cls, root: ET.Element) -> DocumentAddRecognizeResult:
+        doc = root.find("DOCUMENT")
+        wallet = root.find("WALLET")
+        cost = el_text(doc, "COST") if doc is not None else None
+        credits = el_text(wallet, "REMAINING_CREDITS") if wallet is not None else None
+        return cls(
+            status=(el_text(doc, "STATUS") if doc is not None else None) or "UNKNOWN",
+            status_message=el_text(doc, "STATUS_MESSAGE") if doc is not None else None,
+            ocr_origin_id=el_int(doc, "OCR_ORIGIN_ID") if doc is not None else None,
+            cost=float(cost) if cost else None,
+            sent_document_count=el_int(doc, "SENT_DOCUMENT_COUNT") if doc is not None else None,
+            sent_page_count=el_int(doc, "SENT_PAGE_COUNT") if doc is not None else None,
+            split_mode=el_text(doc, "SPLIT_MODE") if doc is not None else None,
+            no_rotate=el_bool(doc, "NO_ROTATE") if doc is not None else None,
+            remaining_credits=float(credits) if credits else None,
+        )
+
+
+class DocumentCorrectContractorInput(BaseModel):
+    """``<CONTRACTOR>`` block inside a ``DocumentCorrectInput``. All fields
+    required by the spec when the block is present."""
+
+    short_name: str
+    full_name: str
+    vat_number: str
+    street: str
+    city: str
+    postcode: str
+
+
+class DocumentCorrectInput(BaseModel):
+    """One ``<DOCUMENT>`` row for ``document.correct`` (AE02).
+
+    Used to overwrite extracted fields on an OCR'd document — Saldeo's
+    ``self_learning`` flag tells the recognizer to remember the correction
+    and apply it the next time the same vendor's document arrives.
+    """
+
+    document_id: int
+    number: str | None = None
+    issue_date: str | None = None
+    sale_date: str | None = None
+    payment_date: str | None = None
+    contractor: DocumentCorrectContractorInput | None = None
+    bank_account: str | None = None
+    self_learning: bool | None = None
+
+
 class DocumentUpdateInput(BaseModel):
     """One document edit for ``document.update`` (SS17).
 

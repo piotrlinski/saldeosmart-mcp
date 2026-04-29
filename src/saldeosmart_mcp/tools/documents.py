@@ -14,6 +14,9 @@ from ..http.xml import set_text
 from ..models import (
     Document,
     DocumentAddInput,
+    DocumentAddRecognizeInput,
+    DocumentAddRecognizeResult,
+    DocumentCorrectInput,
     DocumentDimensionInput,
     DocumentIdGroups,
     DocumentList,
@@ -256,6 +259,56 @@ def add_documents(
         xml_command=xml,
         query={"company_program_id": company_program_id},
         extra_form=form,
+    )
+    return summarize_merge(root, total=len(documents))
+
+
+@mcp.tool
+@saldeo_call
+def add_recognize_document(
+    company_program_id: str,
+    document: DocumentAddRecognizeInput,
+) -> DocumentAddRecognizeResult | ErrorResponse:
+    """Upload a single document and trigger OCR in one round-trip (AE01).
+
+    Saldeo accepts one binary attachment per request. Returns an
+    ``ocr_origin_id`` you can later pass to ``list_recognized_documents``
+    once recognition completes. Costs OCR credits from the wallet —
+    ``status=INSUFFICIENT_FUND`` if the account is out.
+    """
+    _, form = prepare_attachments([document.attachment])
+    xml = _build_document_add_recognize_xml(document)
+    root = get_client().post_command(
+        "/api/xml/2.0/document/add_recognize",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+        extra_form=form,
+    )
+    return DocumentAddRecognizeResult.from_xml(root)
+
+
+@mcp.tool
+@saldeo_call
+def correct_documents(
+    company_program_id: str,
+    documents: list[DocumentCorrectInput],
+) -> MergeResult | ErrorResponse:
+    """Overwrite OCR-extracted fields on already-uploaded documents (AE02).
+
+    Each entry pins a document by ``document_id`` and supplies the corrected
+    field values. ``self_learning=True`` tells Saldeo's recognizer to remember
+    the correction for next time the same vendor's document arrives.
+    """
+    if not documents:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one document correction is required.",
+        )
+    xml = _build_document_correct_xml(documents)
+    root = get_client().post_command(
+        "/api/xml/2.5/document/correct",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
     )
     return summarize_merge(root, total=len(documents))
 
@@ -528,6 +581,45 @@ def _build_document_add_xml(
         set_text(item, "MONTH", doc.month)
         set_text(item, "ATTMNT", att.key)
         set_text(item, "ATTMNT_NAME", att.name)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_add_recognize_xml(document: DocumentAddRecognizeInput) -> str:
+    # XSD-style sequence for the AE01 single-document recognize body. The
+    # binary file is delivered separately as the attmnt_1 form field — there
+    # is no <ATTMNT> element in this request shape.
+    root = ET.Element("ROOT")
+    item = ET.SubElement(root, "DOCUMENT")
+    set_text(item, "VAT_NUMBER", document.vat_number)
+    set_text(item, "DOCUMENT_TYPE", document.document_type)
+    set_text(item, "SPLIT_MODE", document.split_mode)
+    set_text(item, "NO_ROTATE", document.no_rotate)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_correct_xml(documents: list[DocumentCorrectInput]) -> str:
+    # Element order matches document_correct_request.xml: DOCUMENT_ID, NUMBER,
+    # ISSUE_DATE, SALE_DATE, PAYMENT_DATE, CONTRACTOR, BANK_ACCOUNT,
+    # SELF_LEARNING.
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENTS")
+    for d in documents:
+        item = ET.SubElement(container, "DOCUMENT")
+        set_text(item, "DOCUMENT_ID", d.document_id)
+        set_text(item, "NUMBER", d.number)
+        set_text(item, "ISSUE_DATE", d.issue_date)
+        set_text(item, "SALE_DATE", d.sale_date)
+        set_text(item, "PAYMENT_DATE", d.payment_date)
+        if d.contractor is not None:
+            contractor = ET.SubElement(item, "CONTRACTOR")
+            set_text(contractor, "SHORT_NAME", d.contractor.short_name)
+            set_text(contractor, "FULL_NAME", d.contractor.full_name)
+            set_text(contractor, "VAT_NUMBER", d.contractor.vat_number)
+            set_text(contractor, "STREET", d.contractor.street)
+            set_text(contractor, "CITY", d.contractor.city)
+            set_text(contractor, "POSTCODE", d.contractor.postcode)
+        set_text(item, "BANK_ACCOUNT", d.bank_account)
+        set_text(item, "SELF_LEARNING", d.self_learning)
     return ET.tostring(root, encoding="unicode")
 
 
