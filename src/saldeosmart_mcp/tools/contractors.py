@@ -66,6 +66,11 @@ def merge_contractors(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
+    if not contractors:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one contractor is required.",
+        )
     xml = _build_contractor_merge_xml(contractors)
     root = get_client().post_command(
         "/api/xml/1.23/contractor/merge",

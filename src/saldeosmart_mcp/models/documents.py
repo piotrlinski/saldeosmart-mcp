@@ -213,7 +213,7 @@ class DocumentDimensionInput(BaseModel):
     """One ``DOCUMENT_DIMENSION`` row for ``document_dimension.merge`` (SS20)."""
 
     document_id: int
-    dimensions: list[DocumentDimensionValueInput] = Field(max_length=200)
+    dimensions: list[DocumentDimensionValueInput] = Field(min_length=1, max_length=200)
 
 
 class RecognizeOptionInput(BaseModel):
