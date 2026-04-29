@@ -400,10 +400,13 @@ def test_post_command_passes_extra_form_through_to_httpx() -> None:
 
     captured: dict[str, object] = {}
 
-    def fake_post(path: str, params: dict[str, str], data: dict[str, str]) -> httpx.Response:
+    def fake_post(*args: object, **kwargs: object) -> httpx.Response:
+        # post_command calls `self._http.post(path, params=..., data=...)` —
+        # path is positional, the rest are kwargs.
+        path = str(args[0]) if args else str(kwargs["url"])
         captured["path"] = path
-        captured["params"] = params
-        captured["data"] = data
+        captured["params"] = kwargs["params"]
+        captured["data"] = kwargs["data"]
         return httpx.Response(
             status_code=200,
             text="<RESPONSE><STATUS>OK</STATUS></RESPONSE>",
