@@ -18,7 +18,17 @@ from __future__ import annotations
 # FastMCP instance. The submodules each `from ._runtime import mcp`, so
 # `_runtime` is fully initialized before the first tool body runs regardless of
 # the order in this file (isort puts `from .` before `from ._runtime`).
-from . import bank, catalog, companies, contractors, dimensions, documents, invoices, personnel
+from . import (
+    bank,
+    catalog,
+    companies,
+    contractors,
+    dimensions,
+    documents,
+    financial_balance,
+    invoices,
+    personnel,
+)
 from ._runtime import (
     close_client,
     error_response,
@@ -52,12 +62,13 @@ from .documents import (
     sync_documents,
     update_documents,
 )
+from .financial_balance import merge_financial_balance
 from .invoices import (
     get_invoice_id_list,
     get_invoices_by_id,
     list_invoices,
 )
-from .personnel import list_employees, list_personnel_documents
+from .personnel import add_employees, list_employees, list_personnel_documents
 
 __all__ = [
     # Reads
@@ -75,6 +86,7 @@ __all__ = [
     "get_invoice_id_list",
     "get_invoices_by_id",
     # Writes
+    "add_employees",
     "delete_documents",
     "merge_articles",
     "merge_categories",
@@ -83,6 +95,7 @@ __all__ = [
     "merge_dimensions",
     "merge_document_dimensions",
     "merge_fees",
+    "merge_financial_balance",
     "merge_payment_methods",
     "merge_registers",
     "recognize_documents",
@@ -104,6 +117,7 @@ __all__ = [
     "contractors",
     "dimensions",
     "documents",
+    "financial_balance",
     "invoices",
     "personnel",
 ]

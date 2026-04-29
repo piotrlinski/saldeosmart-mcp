@@ -37,8 +37,17 @@ from .documents import (
     DocumentUpdateInput,
     RecognizeOptionInput,
 )
+from .financial_balance import FinancialBalanceMergeInput, FinancialBalanceVATInput
 from .invoices import InvoiceIdGroups, InvoiceList
-from .personnel import Employee, EmployeeList, PersonnelDocument, PersonnelDocumentList
+from .personnel import (
+    ContractType,
+    Employee,
+    EmployeeAddInput,
+    EmployeeContractInput,
+    EmployeeList,
+    PersonnelDocument,
+    PersonnelDocumentList,
+)
 
 __all__ = [
     "ArticleInput",
@@ -52,6 +61,7 @@ __all__ = [
     "CompanyList",
     "CompanySynchronizeInput",
     "Contractor",
+    "ContractType",
     "ContractorInput",
     "ContractorList",
     "DescriptionInput",
@@ -67,9 +77,13 @@ __all__ = [
     "DocumentSyncInput",
     "DocumentUpdateInput",
     "Employee",
+    "EmployeeAddInput",
+    "EmployeeContractInput",
     "EmployeeList",
     "ErrorResponse",
     "FeeInput",
+    "FinancialBalanceMergeInput",
+    "FinancialBalanceVATInput",
     "ForeignCodeInput",
     "InvoiceIdGroups",
     "InvoiceList",

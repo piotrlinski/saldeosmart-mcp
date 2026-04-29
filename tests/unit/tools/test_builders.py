@@ -34,7 +34,11 @@ from saldeosmart_mcp.models import (
     DocumentDimensionValueInput,
     DocumentSyncInput,
     DocumentUpdateInput,
+    EmployeeAddInput,
+    EmployeeContractInput,
     FeeInput,
+    FinancialBalanceMergeInput,
+    FinancialBalanceVATInput,
     ForeignCodeInput,
     PaymentMethodInput,
     RecognizeOptionInput,
@@ -62,8 +66,9 @@ from saldeosmart_mcp.tools.documents import (
     _build_recognize_xml,
     _build_search_xml,
 )
+from saldeosmart_mcp.tools.financial_balance import _build_financial_balance_merge_xml
 from saldeosmart_mcp.tools.invoices import _build_invoice_id_groups_xml
-from saldeosmart_mcp.tools.personnel import _build_personnel_list_xml
+from saldeosmart_mcp.tools.personnel import _build_employee_add_xml, _build_personnel_list_xml
 
 # ---- _build_search_xml -----------------------------------------------------------
 
@@ -569,3 +574,92 @@ def test_company_synchronize_emits_each_pair() -> None:
     assert items[0].findtext("COMPANY_PROGRAM_ID") == "ERP-001"
     assert items[1].findtext("COMPANY_ID") == "99"
     assert items[1].findtext("COMPANY_PROGRAM_ID") == "ERP-002"
+
+
+# ---- _build_employee_add_xml ----------------------------------------------------
+
+
+def test_employee_add_create_branch_includes_required_names() -> None:
+    """Create branch: ACRONYM + FIRST_NAME + LAST_NAME present, EMPLOYEE_ID absent."""
+    xml = _build_employee_add_xml(
+        [
+            EmployeeAddInput(acronym="JD", first_name="Joe", last_name="Doe", email="joe@x.io"),
+        ]
+    )
+    el = ET.fromstring(xml).find("EMPLOYEES/EMPLOYEE")
+    assert el is not None
+    assert el.find("EMPLOYEE_ID") is None
+    assert el.findtext("ACRONYM") == "JD"
+    assert el.findtext("FIRST_NAME") == "Joe"
+    assert el.findtext("LAST_NAME") == "Doe"
+    assert el.findtext("EMAIL") == "joe@x.io"
+
+
+def test_employee_add_update_branch_keys_off_employee_id() -> None:
+    """Update branch: EMPLOYEE_ID leads, name fields optional."""
+    xml = _build_employee_add_xml([EmployeeAddInput(employee_id=42, department="HR")])
+    el = ET.fromstring(xml).find("EMPLOYEES/EMPLOYEE")
+    assert el is not None
+    assert el.findtext("EMPLOYEE_ID") == "42"
+    assert el.find("ACRONYM") is None
+    assert el.findtext("DEPARTMENT") == "HR"
+
+
+def test_employee_add_emits_contracts_in_order() -> None:
+    xml = _build_employee_add_xml(
+        [
+            EmployeeAddInput(
+                acronym="JD",
+                first_name="Joe",
+                last_name="Doe",
+                contracts=[
+                    EmployeeContractInput(type="UMOWA_O_PRACE", position="Manager",
+                                          end_date="2026-12-31"),
+                    EmployeeContractInput(type="UMOWA_ZLECENIE"),
+                ],
+            )
+        ]
+    )
+    contracts = ET.fromstring(xml).findall("EMPLOYEES/EMPLOYEE/CONTRACTS/CONTRACT")
+    assert len(contracts) == 2
+    assert contracts[0].findtext("TYPE") == "UMOWA_O_PRACE"
+    assert contracts[0].findtext("POSITION") == "Manager"
+    assert contracts[0].findtext("ENDATE") == "2026-12-31"
+    assert contracts[1].findtext("TYPE") == "UMOWA_ZLECENIE"
+    assert contracts[1].find("POSITION") is None
+
+
+# ---- _build_financial_balance_merge_xml -----------------------------------------
+
+
+def test_financial_balance_merge_emits_folder_then_balance() -> None:
+    """Order: <FOLDER><YEAR/><MONTH/></FOLDER><FINANCIAL_BALANCE>...</FINANCIAL_BALANCE>."""
+    xml = _build_financial_balance_merge_xml(
+        FinancialBalanceMergeInput(
+            year=2026,
+            month=4,
+            income_month="100000.00",
+            cost_month="40000.00",
+            vat=FinancialBalanceVATInput(value="13800.00", value_to_shift="200.00"),
+        )
+    )
+    root = ET.fromstring(xml)
+    children = list(root)
+    assert [c.tag for c in children] == ["FOLDER", "FINANCIAL_BALANCE"]
+    assert root.findtext("FOLDER/YEAR") == "2026"
+    assert root.findtext("FOLDER/MONTH") == "4"
+    assert root.findtext("FINANCIAL_BALANCE/INCOME_MONTH") == "100000.00"
+    assert root.findtext("FINANCIAL_BALANCE/COST_MONTH") == "40000.00"
+    assert root.findtext("FINANCIAL_BALANCE/VAT/VALUE") == "13800.00"
+    assert root.findtext("FINANCIAL_BALANCE/VAT/VALUE_TO_SHIFT") == "200.00"
+
+
+def test_financial_balance_merge_omits_optional_blocks() -> None:
+    xml = _build_financial_balance_merge_xml(
+        FinancialBalanceMergeInput(year=2026, month=4)
+    )
+    fb = ET.fromstring(xml).find("FINANCIAL_BALANCE")
+    assert fb is not None
+    assert fb.find("VAT") is None
+    assert fb.find("INCOME_MONTH") is None
+    assert fb.find("COST_MONTH") is None
