@@ -1,0 +1,102 @@
+name: Bug report
+description: Something that should work, but doesn't.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. Please fill in as
+        much of the form as you can — the more we know, the faster we can
+        reproduce and fix it.
+
+        ⚠ **Do not paste your `SALDEO_API_TOKEN` or `req_sig` values
+        anywhere in this issue.** Redact them with `<REDACTED>` if they
+        appear in logs.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the bug.
+      placeholder: "`list_documents` raises X when the policy is Y."
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Minimal sequence of steps. Include the tool name and arguments if relevant.
+      placeholder: |
+        1. Build the image: `make build`
+        2. Run with `SALDEO_USERNAME=... SALDEO_API_TOKEN=...`
+        3. Call `list_documents(company_program_id="123", policy="LAST_10_DAYS")`
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual
+      description: What you expected to happen, and what actually happened.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: MCP client
+      options:
+        - Claude Desktop
+        - MCP Inspector
+        - Custom / SDK
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: api-version
+    attributes:
+      label: SaldeoSMART API version (if known)
+      options:
+        - "1.0"
+        - "2.0"
+        - "3.0"
+        - "3.1"
+        - Not sure
+    validations:
+      required: false
+
+  - type: input
+    id: project-version
+    attributes:
+      label: saldeosmart-mcp version / commit
+      description: Output of `git rev-parse --short HEAD`, or the image tag.
+      placeholder: "0.1.0 / abcd123"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      description: Only relevant if running outside Docker.
+      placeholder: "3.12.3"
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "macOS 15.3 / Ubuntu 24.04 / Windows 11 + WSL2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        From `/var/log/saldeosmart/saldeosmart.log` inside the container,
+        or wherever `SALDEO_LOG_DIR` points. **Redact tokens.**
+      render: text

@@ -1,5 +1,11 @@
 # SaldeoSMART MCP Server
 
+[![CI](https://github.com/piotrlinski/saldeosmart-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/piotrlinski/saldeosmart-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Checked with mypy](https://img.shields.io/badge/mypy-strict-2a6db2.svg)](https://mypy-lang.org/)
+
 MCP server for [SaldeoSMART](https://www.saldeosmart.pl/) — gives Claude tools to read and (optionally) modify documents, invoices, contractors, dimensions, articles, employees, and personnel documents on your account.
 
 📖 **Full HTML documentation:** see [`docs/`](docs/index.html) — published to GitHub Pages by [`.github/workflows/pages.yml`](.github/workflows/pages.yml). Enable once under **Settings → Pages → Source: GitHub Actions**, then every push to `master` that touches `docs/**` republishes the site at `https://<owner>.github.io/<repo>/`.
@@ -300,6 +306,14 @@ These endpoints exist in the API but aren't wrapped as MCP tools yet — the com
 
 The lower-level `SaldeoClient.post_command(..., extra_form={"attmnt_1": base64_blob})` already supports attachments, so adding these as tools is a follow-up rather than a redesign.
 
+## Contributing
+
+Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
+workflow (especially the layering rules and the LLM-facing docstring contract).
+Please also read the [Code of Conduct](CODE_OF_CONDUCT.md). For security
+issues, see [`SECURITY.md`](SECURITY.md). Notable changes are tracked in
+[`CHANGELOG.md`](CHANGELOG.md).
+
 ## License
 
-MIT. Not an official SaldeoSMART/BrainShare product.
+[MIT](LICENSE) — see file for full text. Not an official SaldeoSMART/BrainShare product.

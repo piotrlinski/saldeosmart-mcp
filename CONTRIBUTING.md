@@ -139,3 +139,20 @@ if your new tool overlaps with an existing one.
   `tools/` layer.
 - **Don't bypass `saldeo_call`.** Tools must catch `SaldeoError` via the
   decorator so the MCP boundary returns `ErrorResponse`, not stack traces.
+
+## Reporting bugs and security issues
+
+- **Bugs and feature requests:** open an issue using one of the templates in
+  [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
+- **Security vulnerabilities:** do **not** open a public issue. See
+  [`SECURITY.md`](SECURITY.md) for the private disclosure path.
+
+## License
+
+By contributing to this project, you agree that your contributions will be
+licensed under the [MIT License](LICENSE) that covers the project.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). By
+participating, you are expected to uphold it.

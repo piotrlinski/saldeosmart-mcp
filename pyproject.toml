@@ -1,16 +1,47 @@
 [project]
 name = "saldeosmart-mcp"
 version = "0.1.0"
-description = "MCP server for reading documents from SaldeoSMART"
+description = "MCP server for reading and updating documents in SaldeoSMART"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.10"
+authors = [{ name = "Piotr Klinski", email = "piotrklinski@gmail.com" }]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "saldeosmart",
+    "saldeo",
+    "accounting",
+    "claude",
+    "anthropic",
+    "fastmcp",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Accounting",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
 dependencies = [
     "fastmcp>=2.0",
     "httpx>=0.27",
     "pydantic>=2.7",
     "pydantic-settings>=2.0",
 ]
+
+[project.urls]
+Homepage      = "https://github.com/piotrlinski/saldeosmart-mcp"
+Repository    = "https://github.com/piotrlinski/saldeosmart-mcp"
+Issues        = "https://github.com/piotrlinski/saldeosmart-mcp/issues"
+Documentation = "https://piotrlinski.github.io/saldeosmart-mcp/"
+Changelog     = "https://github.com/piotrlinski/saldeosmart-mcp/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
