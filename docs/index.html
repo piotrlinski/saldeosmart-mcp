@@ -35,7 +35,7 @@
     <h3>Operations</h3>
     <a href="#testing">Testing &amp; smoke test</a>
     <a href="#troubleshooting">Troubleshooting</a>
-    <a href="#roadmap">What's not yet covered</a>
+    <a href="#roadmap">API coverage</a>
   </nav>
 </aside>
 
@@ -511,6 +511,126 @@ claude mcp add saldeosmart -- \
         <p>Push accounting numbering and status (<code>BUFFER</code> / <code>INTRODUCED</code> / <code>BOOKED</code>) back into Saldeo. Used by ERP integrations after the document is booked on the accounting side.</p>
       </div>
 
+      <div class="tool-card">
+        <h4>synchronize_companies</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/1.0/company/synchronize</span>
+          <span class="pill">SS15</span>
+        </div>
+        <p>Pin Saldeo company IDs to your ERP-side <code>company_program_id</code> values. Required by every other tool — they all key off <code>company_program_id</code>.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>add_documents</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/1.0/document/add</span>
+          <span class="pill">SS05</span>
+        </div>
+        <p>Upload cost documents (PDF, image, …) to a (year, month) folder. Each entry pairs the folder with one local file via the <code>Attachment</code> input.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>add_employees</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/2.21/employee/add</span>
+          <span class="pill">P03</span>
+        </div>
+        <p>Create or update employees in SaldeoSMART Personnel. Either set <code>employee_id</code> (update) or <code>acronym</code> + <code>first_name</code> + <code>last_name</code> (create).</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>add_personnel_documents</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/2.22/personnel_document/add</span>
+          <span class="pill">P04</span>
+        </div>
+        <p>Upload HR documents (PART_A through PART_E plus REMAINING / OTHER) with attachments. Up to 50 entries per request.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>merge_financial_balance</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/1.15/financial_balance/merge</span>
+          <span class="pill">SSK01</span>
+        </div>
+        <p>Set monthly income, cost, and VAT for a (year, month) folder. Optional <code>&lt;ATTACHMENTS&gt;</code> branch carries source-of-truth files (spreadsheet, scanned report).</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>merge_declarations</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/1.0/declaration/merge</span>
+          <span class="pill">SSK02</span>
+        </div>
+        <p>Sync tax declarations into a folder; each <code>&lt;TAX&gt;</code> entry can carry its own list of supporting attachments (declaration PDFs, reports).</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>renew_assurances</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/1.0/assurance/renew</span>
+          <span class="pill">SSK03</span>
+        </div>
+        <p>Sync ZUS / social-insurance declarations. The details block is TYPE-discriminated (EMPLOYEES totals, PERSONAL one employee, COMPANY owner, PARTNER) — typed via four <code>*DetailsInput</code> subclasses.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>add_recognize_document</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/2.0/document/add_recognize</span>
+          <span class="pill">AE01</span>
+        </div>
+        <p>Upload one document and trigger OCR in a single round-trip; returns the <code>ocr_origin_id</code> to pair with <code>list_recognized_documents</code>.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>correct_documents</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/2.5/document/correct</span>
+          <span class="pill">AE02</span>
+        </div>
+        <p>Overwrite OCR-extracted fields on already-uploaded documents — <code>self_learning=true</code> teaches the recognizer to remember the correction.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>import_documents</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/3.0/document/import</span>
+          <span class="pill">3.0</span>
+        </div>
+        <p>Bulk-import structured documents with full archival metadata: header fields, optional currency override, dimensions, line items, payments, and up to 5 supporting attachments per document. The richest write endpoint Saldeo exposes.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>add_invoice</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/3.1/invoice/add</span>
+          <span class="pill">SSK06</span>
+        </div>
+        <p>Issue a sales invoice with up to 10000 line items, optional discounts, payments, and the new-transport-vehicle metadata block. Saldeo generates the printable PDF on its side.</p>
+      </div>
+
+      <div class="tool-card">
+        <h4>create_companies</h4>
+        <div class="meta">
+          <span class="pill write">write</span>
+          <span class="pill">POST /api/xml/2.19/company/create</span>
+          <span class="pill">SS01</span>
+        </div>
+        <p>Provision new client companies + their admin users in one shot. Many required fields — usually low value for an interactive MCP session, but exposed for completeness.</p>
+      </div>
+
     </div>
   </section>
 
@@ -792,24 +912,13 @@ SALDEO_BASE_URL=https://saldeo.brainshare.pl</code></pre>
   </section>
 
   <section id="roadmap">
-    <h2>What's not yet covered</h2>
+    <h2>API coverage</h2>
 
-    <p>These endpoints exist in the SaldeoSMART REST API but aren't wrapped as MCP tools yet — the common factor is that they require uploading file attachments (gzip+base64 blobs in <code>attmnt_X</code> form fields):</p>
-
-    <ul>
-      <li><code>document.add</code> (SS05)</li>
-      <li><code>document.add_recognize</code> (AE01) and <code>document.correct</code> (AE02)</li>
-      <li><code>document.import</code> (3.0)</li>
-      <li><code>declaration.merge</code> (SSK02)</li>
-      <li><code>assurance.renew</code> (SSK03)</li>
-      <li><code>financial_balance.merge</code> (SSK01) — supports optional attachments</li>
-      <li><code>invoice.add</code> (3.0/3.1, SSK06)</li>
-      <li><code>employee.add</code> (P03)</li>
-      <li><code>personnel_document.add</code> (P04)</li>
-      <li><code>company.create</code> (SS01) and <code>company.synchronize</code> (SS15) — many required fields, low value for an interactive Claude session</li>
-    </ul>
-
-    <p>The lower-level <code>SaldeoClient.post_command(..., extra_form={"attmnt_1": base64_blob})</code> already accepts attachments, so adding these as tools is a follow-up rather than a redesign.</p>
+    <p>Every documented SaldeoSMART REST endpoint is now wrapped as an MCP
+    tool. Attachment-bearing endpoints accept <code>Attachment</code> inputs
+    (path + optional display-name override); the helper at
+    <code>src/saldeosmart_mcp/http/attachments.py</code> handles base64
+    encoding and the matching <code>attmnt_N</code> form-field plumbing.</p>
   </section>
 
   <footer>

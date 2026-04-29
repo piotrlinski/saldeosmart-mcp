@@ -18,7 +18,18 @@ from __future__ import annotations
 # FastMCP instance. The submodules each `from ._runtime import mcp`, so
 # `_runtime` is fully initialized before the first tool body runs regardless of
 # the order in this file (isort puts `from .` before `from ._runtime`).
-from . import bank, catalog, companies, contractors, dimensions, documents, invoices, personnel
+from . import (
+    accounting_close,
+    bank,
+    catalog,
+    companies,
+    contractors,
+    dimensions,
+    documents,
+    financial_balance,
+    invoices,
+    personnel,
+)
 from ._runtime import (
     close_client,
     error_response,
@@ -28,6 +39,7 @@ from ._runtime import (
     saldeo_call,
     summarize_merge,
 )
+from .accounting_close import merge_declarations, renew_assurances
 from .bank import list_bank_statements
 from .catalog import (
     merge_articles,
@@ -37,13 +49,17 @@ from .catalog import (
     merge_payment_methods,
     merge_registers,
 )
-from .companies import list_companies
+from .companies import create_companies, list_companies, synchronize_companies
 from .contractors import list_contractors, merge_contractors
 from .dimensions import merge_dimensions
 from .documents import (
+    add_documents,
+    add_recognize_document,
+    correct_documents,
     delete_documents,
     get_document_id_list,
     get_documents_by_id,
+    import_documents,
     list_documents,
     list_recognized_documents,
     merge_document_dimensions,
@@ -52,12 +68,19 @@ from .documents import (
     sync_documents,
     update_documents,
 )
+from .financial_balance import merge_financial_balance
 from .invoices import (
+    add_invoice,
     get_invoice_id_list,
     get_invoices_by_id,
     list_invoices,
 )
-from .personnel import list_employees, list_personnel_documents
+from .personnel import (
+    add_employees,
+    add_personnel_documents,
+    list_employees,
+    list_personnel_documents,
+)
 
 __all__ = [
     # Reads
@@ -75,18 +98,30 @@ __all__ = [
     "get_invoice_id_list",
     "get_invoices_by_id",
     # Writes
+    "add_documents",
+    "add_employees",
+    "add_invoice",
+    "add_personnel_documents",
+    "add_recognize_document",
+    "correct_documents",
+    "create_companies",
     "delete_documents",
+    "import_documents",
     "merge_articles",
     "merge_categories",
     "merge_contractors",
     "merge_descriptions",
+    "merge_declarations",
     "merge_dimensions",
     "merge_document_dimensions",
     "merge_fees",
+    "merge_financial_balance",
     "merge_payment_methods",
     "merge_registers",
     "recognize_documents",
+    "renew_assurances",
     "sync_documents",
+    "synchronize_companies",
     "update_documents",
     # Runtime helpers
     "close_client",
@@ -97,12 +132,14 @@ __all__ = [
     "saldeo_call",
     "summarize_merge",
     # Submodule references (so static analyzers see them as used)
+    "accounting_close",
     "bank",
     "catalog",
     "companies",
     "contractors",
     "dimensions",
     "documents",
+    "financial_balance",
     "invoices",
     "personnel",
 ]

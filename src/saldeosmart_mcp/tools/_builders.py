@@ -4,18 +4,22 @@ Resource-specific builders (e.g. ``_build_contractor_merge_xml``,
 ``_build_search_xml``) live next to their tools; only the patterns reused
 across resources land here.
 
-Three building blocks:
+Building blocks:
   - :func:`build_folder_xml` — body for the 3.0 ``*.getidlist`` endpoints
   - :func:`append_id_group` — append ``<CONTAINER><ITEM>id</ITEM>...</CONTAINER>``
   - :func:`build_simple_merge_xml` — generic
     ``<ROOT><CONTAINER><ITEM><FIELD/>...</ITEM>...</CONTAINER></ROOT>``
+  - :func:`append_close_attachments` — shared ``<ATTACHMENTS>`` block used
+    by financial_balance.merge, declaration.merge, and assurance.renew.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 from xml.etree import ElementTree as ET
 
+from ..http.attachments import PreparedAttachment
 from ..http.xml import set_text
 
 
@@ -66,3 +70,33 @@ def build_simple_merge_xml(
         for attr, tag in field_specs:
             set_text(item_el, tag, getattr(item, attr, None))
     return ET.tostring(root, encoding="unicode")
+
+
+def append_close_attachments(
+    parent: ET.Element,
+    attachments: Sequence[Any],
+    prepared: list[PreparedAttachment],
+) -> None:
+    """Append ``<ATTACHMENTS><ATTACHMENT>...</ATTACHMENT></ATTACHMENTS>``.
+
+    Element order per the SSK0X spec: TYPE, NAME, DESCRIPTION,
+    SHORT_DESCRIPTION, ATTMNT, ATTMNT_NAME. ``attachments`` and
+    ``prepared`` must be the same length and in the same order — caller
+    slices the global ``prepare_attachments`` output to match each item's
+    attachments list.
+
+    Each entry in ``attachments`` is duck-typed: it must expose ``type``,
+    ``name``, ``description``, and ``short_description``. The shape lives
+    in ``models.accounting_close.CloseAttachmentInput`` — typed as
+    ``Sequence[Any]`` here only to keep this generic helper from
+    importing the specific model.
+    """
+    container = ET.SubElement(parent, "ATTACHMENTS")
+    for att, p in zip(attachments, prepared, strict=True):
+        item = ET.SubElement(container, "ATTACHMENT")
+        set_text(item, "TYPE", att.type)
+        set_text(item, "NAME", att.name)
+        set_text(item, "DESCRIPTION", att.description)
+        set_text(item, "SHORT_DESCRIPTION", att.short_description)
+        set_text(item, "ATTMNT", p.key)
+        set_text(item, "ATTMNT_NAME", p.name)

@@ -18,6 +18,14 @@ from typing import Any
 import pytest
 
 from saldeosmart_mcp.errors import ErrorResponse
+from saldeosmart_mcp.models import (
+    AssuranceRenewInput,
+    DeclarationMergeInput,
+)
+from saldeosmart_mcp.models import (
+    ErrorResponse as ErrorResponseModel,
+)
+from saldeosmart_mcp.tools.accounting_close import merge_declarations, renew_assurances
 from saldeosmart_mcp.tools.catalog import (
     merge_articles,
     merge_categories,
@@ -26,40 +34,78 @@ from saldeosmart_mcp.tools.catalog import (
     merge_payment_methods,
     merge_registers,
 )
+from saldeosmart_mcp.tools.companies import create_companies, synchronize_companies
 from saldeosmart_mcp.tools.contractors import merge_contractors
 from saldeosmart_mcp.tools.dimensions import merge_dimensions
 from saldeosmart_mcp.tools.documents import (
+    add_documents,
+    correct_documents,
     delete_documents,
+    import_documents,
     merge_document_dimensions,
     recognize_documents,
     sync_documents,
     update_documents,
 )
+from saldeosmart_mcp.tools.personnel import add_employees, add_personnel_documents
 
 
 @pytest.mark.parametrize(
-    "tool,list_kwarg,extra_kwargs",
+    "tool,list_kwarg,extra_kwargs,needs_company_program_id",
     [
-        (update_documents, "documents", {}),
-        (delete_documents, "document_ids", {}),
-        (recognize_documents, "documents", {}),
-        (sync_documents, "syncs", {}),
-        (merge_document_dimensions, "documents", {}),
-        (merge_categories, "categories", {}),
-        (merge_payment_methods, "payment_methods", {}),
-        (merge_registers, "registers", {}),
-        (merge_descriptions, "descriptions", {}),
-        (merge_articles, "articles", {}),
-        (merge_fees, "fees", {"year": 2026, "month": 1}),
-        (merge_contractors, "contractors", {}),
-        (merge_dimensions, "dimensions", {}),
+        (update_documents, "documents", {}, True),
+        (delete_documents, "document_ids", {}, True),
+        (recognize_documents, "documents", {}, True),
+        (sync_documents, "syncs", {}, True),
+        (merge_document_dimensions, "documents", {}, True),
+        (merge_categories, "categories", {}, True),
+        (merge_payment_methods, "payment_methods", {}, True),
+        (merge_registers, "registers", {}, True),
+        (merge_descriptions, "descriptions", {}, True),
+        (merge_articles, "articles", {}, True),
+        (merge_fees, "fees", {"year": 2026, "month": 1}, True),
+        (merge_contractors, "contractors", {}, True),
+        (merge_dimensions, "dimensions", {}, True),
+        (synchronize_companies, "companies", {}, False),
+        (create_companies, "companies", {}, False),
+        (add_employees, "employees", {}, True),
+        (add_documents, "documents", {}, True),
+        (add_personnel_documents, "documents", {}, True),
+        (correct_documents, "documents", {}, True),
+        (import_documents, "documents", {}, True),
     ],
 )
 def test_empty_list_returns_empty_input_error(
     tool: Callable[..., Any],
     list_kwarg: str,
     extra_kwargs: dict[str, Any],
+    needs_company_program_id: bool,
 ) -> None:
-    result = tool(company_program_id="test-company", **{list_kwarg: []}, **extra_kwargs)
+    kwargs: dict[str, Any] = {list_kwarg: [], **extra_kwargs}
+    if needs_company_program_id:
+        kwargs["company_program_id"] = "test-company"
+    result = tool(**kwargs)
     assert isinstance(result, ErrorResponse)
+    assert result.error == "EMPTY_INPUT"
+
+
+def test_merge_declarations_empty_taxes_returns_empty_input_error() -> None:
+    """declaration.merge takes a single DeclarationMergeInput; an empty
+    `taxes` list short-circuits at the tool level."""
+    result = merge_declarations(
+        company_program_id="test-company",
+        declarations=DeclarationMergeInput(year=2026, month=4, taxes=[]),
+    )
+    assert isinstance(result, ErrorResponseModel)
+    assert result.error == "EMPTY_INPUT"
+
+
+def test_renew_assurances_empty_assurances_returns_empty_input_error() -> None:
+    """assurance.renew takes a single AssuranceRenewInput; an empty
+    `assurances` list short-circuits at the tool level."""
+    result = renew_assurances(
+        company_program_id="test-company",
+        assurances=AssuranceRenewInput(year=2026, month=4, assurances=[]),
+    )
+    assert isinstance(result, ErrorResponseModel)
     assert result.error == "EMPTY_INPUT"

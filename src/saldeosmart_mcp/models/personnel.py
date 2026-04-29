@@ -2,11 +2,32 @@
 
 from __future__ import annotations
 
+from typing import Literal
 from xml.etree import ElementTree as ET
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from ..http.attachments import Attachment
 from ..http.xml import el_bool, el_int, el_text
+
+ContractType = Literal[
+    "KONTRAKT_MENADZERSKI",
+    "UMOWA_AGENCYJNA",
+    "UMOWA_O_DZIELO",
+    "UMOWA_O_PRACE_TYMCZASOWA",
+    "UMOWA_O_PRACE",
+    "UMOWA_ZLECENIE",
+]
+
+PersonnelDocumentType = Literal[
+    "REMAINING",
+    "OTHER",
+    "PART_A",
+    "PART_B",
+    "PART_C",
+    "PART_D",
+    "PART_E",
+]
 
 
 class Employee(BaseModel):
@@ -81,3 +102,65 @@ class PersonnelDocument(BaseModel):
 class PersonnelDocumentList(BaseModel):
     personnel_documents: list[PersonnelDocument]
     count: int
+
+
+class EmployeeContractInput(BaseModel):
+    """One ``<CONTRACT>`` row inside an ``EmployeeAddInput``."""
+
+    type: ContractType
+    position: str | None = None
+    end_date: str | None = None  # ISO YYYY-MM-DD
+
+
+class EmployeeAddInput(BaseModel):
+    """One ``<EMPLOYEE>`` row for ``employee.add`` (P03).
+
+    The XSD enforces a choice rule: either ``employee_id`` is set (update an
+    existing employee, all other fields optional) or all of
+    ``acronym`` + ``first_name`` + ``last_name`` are set (create a new one).
+    Mixing them — providing ``employee_id`` plus a partial set of
+    name fields — works for updates: ``acronym`` / ``first_name`` /
+    ``last_name`` are optional in the update branch. Saldeo enforces the
+    rest server-side.
+    """
+
+    employee_id: int | None = None
+    acronym: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    parents_names: str | None = None
+    birth_date: str | None = None  # ISO YYYY-MM-DD
+    pesel: str | None = None
+    nip: str | None = None
+    id_card_number: str | None = None
+    bank_account_number: str | None = None
+    email: str | None = None
+    telephone_number: str | None = None
+    address: str | None = None
+    work_begin_date: str | None = None
+    medical_test_date: str | None = None
+    bhp_expiry_date: str | None = None
+    department: str | None = None
+    comments: str | None = None
+    inactive: bool | None = None
+    contracts: list[EmployeeContractInput] = Field(default_factory=list, max_length=6)
+
+
+class PersonnelDocumentAddInput(BaseModel):
+    """One ``<PERSONNEL_DOCUMENT>`` row for ``personnel_document.add`` (P04).
+
+    Required: ``year``, ``month``, ``document_type``, ``attachment``.
+    Saldeo accepts up to 50 personnel documents per request.
+    """
+
+    year: int
+    month: int
+    document_type: PersonnelDocumentType
+    attachment: Attachment
+    employee_id: int | None = None
+    number: int | None = None
+    document_name: str | None = None
+    description: str | None = None
+    date_of_duty: str | None = None  # ISO YYYY-MM-DD
+    mark_when_date_of_duty_expired: bool | None = None
+    notification_date: str | None = None  # ISO YYYY-MM-DD
