@@ -44,13 +44,27 @@ def merge_contractors(
     company_program_id: str,
     contractors: list[ContractorInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update contractors (suppliers/customers) in bulk (SS02).
+    """Create or update contractors (suppliers/customers) in bulk.
 
-    Each entry must include short_name and full_name. ``contractor_program_id``
-    is your ERP-side ID; ``contractor_id`` is Saldeo's; either can identify
-    an existing contractor for update. Without one, a new contractor is
-    created. Saldeo returns per-item statuses — fields that failed validation
-    surface in the ``errors`` list.
+    Saldeo op: ``contractor.merge`` (SS02). Saldeo returns per-item
+    statuses — failed-validation fields surface in ``errors``.
+
+    Args:
+        company_program_id: External program ID of the company.
+        contractors: One ContractorInput per contractor.
+            Required on every entry: ``short_name``, ``full_name``.
+            Identification rule (controls create vs update):
+              - Provide ``contractor_program_id`` — your ERP-side ID, used
+                when integrating with an external system. Use this when
+                you already track the contractor in your ERP.
+              - Provide ``contractor_id`` — Saldeo's internal numeric ID,
+                returned by ``list_contractors``. Use this when you've
+                already pulled the contractor from Saldeo and want to
+                update it.
+              - Omit both — a brand-new contractor is created.
+
+    Returns:
+        MergeResult on success, ErrorResponse on failure.
     """
     xml = _build_contractor_merge_xml(contractors)
     root = get_client().post_command(

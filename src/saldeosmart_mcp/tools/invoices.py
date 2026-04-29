@@ -62,7 +62,21 @@ def get_invoices_by_id(
     pre_invoices: list[int] | None = None,
     corrective_pre_invoices: list[int] | None = None,
 ) -> InvoiceList | ErrorResponse:
-    """Fetch invoices by ID, grouped by kind (SSK08)."""
+    """Fetch full sales-invoice records for a set of IDs, grouped by kind.
+
+    Pair with ``get_invoice_id_list`` for paginated browsing of one folder.
+    Saldeo op: ``invoice.listbyid`` (3.0).
+
+    Args:
+        company_program_id: External program ID of the company.
+        invoices, corrective_invoices, pre_invoices, corrective_pre_invoices:
+            Optional lists of invoice IDs from ``get_invoice_id_list``.
+            Pass only the buckets you care about; the rest default to None
+            (omitted from the request).
+
+    Returns:
+        InvoiceList — flat list of invoice records.
+    """
     xml = _build_invoice_id_groups_xml(
         invoices=invoices,
         corrective_invoices=corrective_invoices,

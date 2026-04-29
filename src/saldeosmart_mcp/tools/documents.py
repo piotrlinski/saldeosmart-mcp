@@ -40,14 +40,24 @@ def list_documents(
     company_program_id: str,
     policy: DocumentPolicy = "LAST_10_DAYS",
 ) -> DocumentList | ErrorResponse:
-    """List documents (invoices, receipts) for a company.
+    """List recently-added cost documents (invoices, receipts) for a company.
+
+    Use this for a fast "what's new" scan. For lookup by a specific identifier,
+    prefer ``search_documents``. For paginated browsing of a single month,
+    use ``get_document_id_list`` + ``get_documents_by_id`` (3.0 endpoints).
 
     Args:
-        company_program_id: External program ID of the company.
+        company_program_id: External program ID of the company. Get one from
+            ``list_companies`` if unknown.
         policy: Which documents to return:
             - LAST_10_DAYS — all documents added in the last 10 days (default)
             - LAST_10_DAYS_OCRED — only OCR-processed docs from last 10 days
             - SALDEO — only documents marked for export from SaldeoSMART UI
+
+    Returns:
+        DocumentList with each document's IDs, dates, monetary fields,
+        contractor, and items. On failure, ErrorResponse — see
+        docs/ERROR_CODES.md.
     """
     # Use API version 2.12 — most recent stable with rich document fields.
     root = get_client().get(
@@ -67,10 +77,22 @@ def search_documents(
     nip: str | None = None,
     guid: str | None = None,
 ) -> DocumentList | ErrorResponse:
-    """Search for specific documents by ID, document number, contractor NIP, or GUID.
+    """Find a specific document by ID, document number, contractor NIP, or GUID.
 
-    Pass at least one of document_id / number / nip / guid. Combining number+nip
-    narrows down a single invoice from a known supplier.
+    Use this for precise lookup. For a recent-activity scan, use
+    ``list_documents`` instead.
+
+    Args:
+        company_program_id: External program ID of the company.
+        document_id: Saldeo's internal numeric ID. At least one of
+            document_id / number / nip / guid must be set.
+        number: The document's printed number (e.g. "FV/1/2024").
+        nip: The contractor's VAT number — narrows by counterparty.
+        guid: Saldeo's stable per-document UUID.
+
+    Returns:
+        DocumentList (typically 0 or 1 document, sometimes more if number
+        matches multiple). On failure, ErrorResponse.
     """
     if not any((document_id, number, nip, guid)):
         return ErrorResponse(
@@ -95,12 +117,23 @@ def get_document_id_list(
     year: int,
     month: int,
 ) -> DocumentIdGroups | ErrorResponse:
-    """List document IDs in one folder, grouped by kind (SS22).
+    """Discover all document IDs in one (year, month) folder, grouped by kind.
 
-    A 3.0 endpoint. Use this first to discover IDs, then `get_documents_by_id`
-    to fetch full document details. Saldeo splits results into eight buckets
-    (contracts, cost invoices, sale invoices, internal/material invoices,
-    orders, writings, other). Empty buckets come back empty.
+    Use this as the first step of paginated browsing — call with a specific
+    month, then ``get_documents_by_id`` with the buckets you care about.
+    For a "last 10 days" scan, use ``list_documents`` instead.
+
+    Saldeo op: ``document.getidlist`` (3.0).
+
+    Args:
+        company_program_id: External program ID of the company.
+        year: 4-digit year of the folder.
+        month: Month of the folder, 1–12.
+
+    Returns:
+        DocumentIdGroups with eight ID buckets (contracts, invoices_cost,
+        invoices_internal, invoices_material, invoices_sale, orders,
+        writings, other_documents). Empty buckets are present but empty.
     """
     xml = build_folder_xml(year, month)
     root = get_client().post_command(
@@ -124,11 +157,22 @@ def get_documents_by_id(
     writings: list[int] | None = None,
     other_documents: list[int] | None = None,
 ) -> DocumentList | ErrorResponse:
-    """Fetch documents by ID, grouped by kind (SS23).
+    """Fetch full document records for a set of IDs, grouped by kind.
 
-    Pass IDs in the buckets returned by `get_document_id_list`. Empty buckets
-    can be omitted. Returns a flat ``DocumentList`` of whatever the server
-    sent back (Saldeo returns the full document records, not just the IDs).
+    Pair with ``get_document_id_list`` (3.0 paginated browsing). Pass only
+    the buckets you care about — omit unused ones. Saldeo op:
+    ``document.listbyid`` (3.0).
+
+    Args:
+        company_program_id: External program ID of the company.
+        contracts, invoices_cost, invoices_internal, invoices_material,
+        invoices_sale, orders, writings, other_documents:
+            Optional lists of document IDs from ``get_document_id_list``.
+            Each list defaults to None (omitted from the request).
+
+    Returns:
+        DocumentList — flat list of full document records (the per-bucket
+        grouping from the request is not preserved in the response).
     """
     xml = _build_document_id_groups_xml(
         contracts=contracts,

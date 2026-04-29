@@ -30,7 +30,21 @@ def merge_categories(
     company_program_id: str,
     categories: list[CategoryInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update document categories (SS09)."""
+    """Create or update document categories for a company.
+
+    Categories classify cost documents (e.g. "Office supplies", "Fuel").
+    Each item is matched on ``category_program_id`` (your ERP-side ID); set
+    it to update an existing category, omit it to create a new one. Saldeo
+    op: ``category.merge`` (SS09).
+
+    Args:
+        company_program_id: External program ID of the company.
+        categories: One CategoryInput per category. ``name`` is required.
+
+    Returns:
+        MergeResult — total + per-item successes/errors. On envelope-level
+        failure, ErrorResponse (see docs/ERROR_CODES.md).
+    """
     xml = build_simple_merge_xml(
         container_tag="CATEGORIES",
         item_tag="CATEGORY",
@@ -55,7 +69,19 @@ def merge_payment_methods(
     company_program_id: str,
     payment_methods: list[PaymentMethodInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update payment methods (SS11)."""
+    """Create or update payment methods (e.g. "cash", "transfer", "card").
+
+    Each item is matched on ``payment_method_program_id`` or
+    ``payment_method_id`` for update; without either, a new method is
+    created. Saldeo op: ``payment_method.merge`` (SS11).
+
+    Args:
+        company_program_id: External program ID of the company.
+        payment_methods: One PaymentMethodInput per method. ``name`` is required.
+
+    Returns:
+        MergeResult on success, ErrorResponse on failure.
+    """
     xml = build_simple_merge_xml(
         container_tag="PAYMENT_METHODS",
         item_tag="PAYMENT_METHOD",
@@ -80,7 +106,19 @@ def merge_registers(
     company_program_id: str,
     registers: list[RegisterInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update registers (SS10)."""
+    """Create or update accounting registers (sales/purchase ledgers).
+
+    A register groups documents that get posted together (e.g. "VAT-S" for
+    sales). Match on ``register_program_id`` or ``register_id`` to update.
+    Saldeo op: ``register.merge`` (SS10).
+
+    Args:
+        company_program_id: External program ID of the company.
+        registers: One RegisterInput per register. ``name`` is required.
+
+    Returns:
+        MergeResult on success, ErrorResponse on failure.
+    """
     xml = build_simple_merge_xml(
         container_tag="REGISTERS",
         item_tag="REGISTER",
@@ -105,7 +143,18 @@ def merge_descriptions(
     company_program_id: str,
     descriptions: list[DescriptionInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update business event descriptions (SS14)."""
+    """Create or update reusable business-event descriptions.
+
+    Pre-canned descriptions that bookkeepers attach to documents (e.g.
+    "goods purchase", "service fee"). Saldeo op: ``description.merge`` (SS14).
+
+    Args:
+        company_program_id: External program ID of the company.
+        descriptions: One DescriptionInput per row. ``value`` is required.
+
+    Returns:
+        MergeResult on success, ErrorResponse on failure.
+    """
     xml = build_simple_merge_xml(
         container_tag="DESCRIPTIONS",
         item_tag="DESCRIPTION",
@@ -129,7 +178,21 @@ def merge_articles(
     company_program_id: str,
     articles: list[ArticleInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update article catalog (SS21)."""
+    """Create or update the article (product/service) catalog.
+
+    Articles are line-item products keyed by ``code``. Optional
+    ``foreign_codes`` map a contractor's external code (per-supplier SKU)
+    to your internal ``code``. Saldeo op: ``article.merge`` (SS21).
+
+    Args:
+        company_program_id: External program ID of the company.
+        articles: One ArticleInput per article. ``name`` is required.
+            Set ``for_documents`` to expose in cost-document line items;
+            ``for_invoices`` to expose in sales-invoice line items.
+
+    Returns:
+        MergeResult on success, ErrorResponse on failure.
+    """
     xml = _build_article_merge_xml(articles)
     root = get_client().post_command(
         "/api/xml/1.14/article/merge",
@@ -147,9 +210,22 @@ def merge_fees(
     month: int,
     fees: list[FeeInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update accounting-firm fees for a given month (SSK04).
+    """Create or update the accounting-firm fee schedule for one month.
 
-    ``maturity`` per fee is the due date (YYYY-MM-DD).
+    Used by accounting offices to bill their clients (e.g. monthly retainer,
+    extra-document fees). All fees are nested under one ``<FOLDER>`` of
+    (year, month). Saldeo op: ``fee.merge`` (SSK04).
+
+    Args:
+        company_program_id: External program ID of the company being billed.
+        year: 4-digit year of the billing folder (e.g. 2024).
+        month: Month of the billing folder, 1–12.
+        fees: One FeeInput per fee row. ``type``, ``value``, and
+            ``maturity`` (ISO YYYY-MM-DD due date) are required; ``maturity``
+            is validated client-side.
+
+    Returns:
+        MergeResult on success, ErrorResponse on failure.
     """
     xml = _build_fee_merge_xml(year=year, month=month, fees=fees)
     root = get_client().post_command(

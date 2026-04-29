@@ -61,6 +61,7 @@ class SaldeoClient:
             base_url=config.base_url,
             timeout=config.timeout,
             headers={"Accept-Encoding": "gzip, deflate"},
+            verify=True,  # explicit: SaldeoSMART traffic must use TLS verification
         )
         # Spec: "no concurrent requests" — Saldeo refuses concurrent calls per
         # user. FastMCP can dispatch tools concurrently from the thread executor,
@@ -153,68 +154,21 @@ class SaldeoClient:
         """
         text = resp.text  # httpx handles gzip transparently
         http_status = resp.status_code
-
-        root: ET.Element | None = None
-        parse_error: ET.ParseError | None = None
-        try:
-            root = ET.fromstring(text) if text else None
-        except ET.ParseError as e:
-            parse_error = e
-
-        # SaldeoSMART almost always answers HTTP 200 even on failure — the
-        # real outcome lives in the body. Without explicit logging the file
-        # log only shows the httpx 200 line and the API error is invisible.
         url = redact_url(str(resp.request.url)) if resp.request is not None else "<unknown>"
+
+        root, parse_error = _try_parse_xml(text)
 
         # 1. Structured error envelope wins over HTTP status.
         if root is not None:
-            status_el = root.find("STATUS")
-            if status_el is not None and (status_el.text or "").strip().upper() == "ERROR":
-                code = (el_text(root, "ERROR_CODE") or "").strip() or "UNKNOWN"
-                msg = (
-                    (el_text(root, "ERROR_MESSAGE") or "").strip()
-                    or "SaldeoSMART returned STATUS=ERROR with no ERROR_MESSAGE"
-                )
-                logger.warning(
-                    "SaldeoSMART API error: code=%s message=%s http_status=%s url=%s",
-                    code,
-                    msg,
-                    http_status,
-                    url,
-                )
-                raise SaldeoError(
-                    code=code,
-                    message=msg,
-                    raw_xml=text,
-                    http_status=http_status if http_status >= 400 else None,
-                )
+            self._raise_if_envelope_error(root, text, http_status, url)
 
         # 2. HTTP-level failure with no structured envelope.
         if http_status >= 400:
-            snippet = (text or "").strip()[:500] or resp.reason_phrase or "<empty body>"
-            logger.warning(
-                "SaldeoSMART HTTP error: status=%s url=%s body=%s", http_status, url, snippet
-            )
-            raise SaldeoError(
-                code=f"HTTP_{http_status}",
-                message=f"HTTP {http_status} from SaldeoSMART: {snippet}",
-                raw_xml=text,
-                http_status=http_status,
-            )
+            self._raise_http_error(text, http_status, url, resp.reason_phrase)
 
         # 3. 2xx but body wasn't valid XML.
         if root is None:
-            logger.warning(
-                "SaldeoSMART parse error: %s url=%s body=%r",
-                parse_error,
-                url,
-                (text or "")[:500],
-            )
-            raise SaldeoError(
-                code="PARSE_ERROR",
-                message=f"Could not parse XML response: {parse_error}",
-                raw_xml=text,
-            ) from parse_error
+            self._raise_parse_error(text, url, parse_error)
 
         # 4. STATUS=OK (or absent — some endpoints just stream data) — log
         # the operation at INFO so a successful flow is visible alongside
@@ -224,3 +178,71 @@ class SaldeoClient:
         logger.info("SaldeoSMART OK: operation=%s url=%s", operation or "?", url)
 
         return root
+
+    @staticmethod
+    def _raise_if_envelope_error(
+        root: ET.Element, text: str, http_status: int, url: str
+    ) -> None:
+        """Raise SaldeoError if the parsed body has <STATUS>ERROR</STATUS>."""
+        status_el = root.find("STATUS")
+        if status_el is None or (status_el.text or "").strip().upper() != "ERROR":
+            return
+        code = (el_text(root, "ERROR_CODE") or "").strip() or "UNKNOWN"
+        msg = (
+            (el_text(root, "ERROR_MESSAGE") or "").strip()
+            or "SaldeoSMART returned STATUS=ERROR with no ERROR_MESSAGE"
+        )
+        logger.warning(
+            "SaldeoSMART API error: code=%s message=%s http_status=%s url=%s",
+            code,
+            msg,
+            http_status,
+            url,
+        )
+        raise SaldeoError(
+            code=code,
+            message=msg,
+            raw_xml=text,
+            http_status=http_status if http_status >= 400 else None,
+        )
+
+    @staticmethod
+    def _raise_http_error(text: str, http_status: int, url: str, reason: str) -> None:
+        """Raise SaldeoError for an HTTP 4xx/5xx with no structured envelope."""
+        snippet = (text or "").strip()[:500] or reason or "<empty body>"
+        logger.warning(
+            "SaldeoSMART HTTP error: status=%s url=%s body=%s", http_status, url, snippet
+        )
+        raise SaldeoError(
+            code=f"HTTP_{http_status}",
+            message=f"HTTP {http_status} from SaldeoSMART: {snippet}",
+            raw_xml=text,
+            http_status=http_status,
+        )
+
+    @staticmethod
+    def _raise_parse_error(
+        text: str, url: str, parse_error: ET.ParseError | None
+    ) -> None:
+        """Raise SaldeoError when the 2xx body isn't valid XML."""
+        logger.warning(
+            "SaldeoSMART parse error: %s url=%s body=%r",
+            parse_error,
+            url,
+            (text or "")[:500],
+        )
+        raise SaldeoError(
+            code="PARSE_ERROR",
+            message=f"Could not parse XML response: {parse_error}",
+            raw_xml=text,
+        ) from parse_error
+
+
+def _try_parse_xml(text: str) -> tuple[ET.Element | None, ET.ParseError | None]:
+    """Parse `text` as XML; return (root, None) on success or (None, error)."""
+    if not text:
+        return None, None
+    try:
+        return ET.fromstring(text), None
+    except ET.ParseError as e:
+        return None, e

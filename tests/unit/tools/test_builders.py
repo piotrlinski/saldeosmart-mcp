@@ -1,20 +1,26 @@
-"""
-Tests for server-side concerns: log setup and the SaldeoError → MCP payload
-shape. The MCP tool functions themselves hit the network, so we test their
-plumbing rather than the tools end-to-end.
+"""Tests for SaldeoSMART request-XML builders.
+
+Two classes of bug we guard against:
+
+1. **Element name mismatches** — builders writing `<X>` when the spec wants
+   `<Y>` (the article-merge builder used to emit `<CONTRACTOR_PROGRAM_ID>`
+   inside `<FOREIGN_CODE>`, which the XSD does not define).
+2. **Element ordering** — Saldeo XSDs use ``<xs:sequence>``, so strict parsers
+   reject the wrong order even when names are correct (``document.sync`` is
+   the obvious case).
+
+Reference shapes: ``.temp/api-html-mirror/`` (request schemas
+``*_request.xsd`` and example payloads ``*_request_example.xml``).
+
+These tests also cover ``_summarize_merge`` because the merge response
+shape is the symmetric counterpart of the merge request — easier to keep
+the round-trip honest by testing them side by side.
 """
 
 from __future__ import annotations
 
-import logging
-from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
 from xml.etree import ElementTree as ET
 
-import pytest
-
-from saldeosmart_mcp.errors import ItemError, SaldeoError
-from saldeosmart_mcp.logging import setup_logging as _setup_logging
 from saldeosmart_mcp.models import (
     ArticleInput,
     BankAccountInput,
@@ -37,10 +43,7 @@ from saldeosmart_mcp.tools._builders import (
     _build_folder_xml,
     _build_simple_merge_xml,
 )
-from saldeosmart_mcp.tools._runtime import (
-    _error_payload,
-    _summarize_merge,
-)
+from saldeosmart_mcp.tools._runtime import _summarize_merge
 from saldeosmart_mcp.tools.catalog import (
     _build_article_merge_xml,
     _build_fee_merge_xml,
@@ -59,208 +62,6 @@ from saldeosmart_mcp.tools.documents import (
 )
 from saldeosmart_mcp.tools.invoices import _build_invoice_id_groups_xml
 from saldeosmart_mcp.tools.personnel import _build_personnel_list_xml
-
-
-@pytest.fixture
-def isolated_root_logger():
-    """
-    `_setup_logging` mutates the global root logger. Snapshot and restore so
-    tests don't bleed handlers/levels into each other.
-    """
-    root = logging.getLogger()
-    saved_handlers = list(root.handlers)
-    saved_level = root.level
-    root.handlers.clear()
-    yield root
-    for h in list(root.handlers):
-        root.removeHandler(h)
-        h.close()
-    for h in saved_handlers:
-        root.addHandler(h)
-    root.setLevel(saved_level)
-
-
-@pytest.fixture
-def clean_env(monkeypatch):
-    """Remove any SALDEO_LOG_* env vars so we exercise defaults predictably."""
-    for var in ("SALDEO_LOG_DIR", "SALDEO_LOG_LEVEL", "SALDEO_LOG_RETENTION_DAYS"):
-        monkeypatch.delenv(var, raising=False)
-    return monkeypatch
-
-
-# ---- _setup_logging --------------------------------------------------------------
-
-
-def test_setup_logging_writes_to_configured_dir(tmp_path, isolated_root_logger, clean_env):
-    """Custom SALDEO_LOG_DIR must override the default ~/.saldeosmart/logs."""
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-
-    log_file = _setup_logging()
-
-    assert log_file == tmp_path / "saldeosmart.log"
-    assert log_file.parent.exists()
-
-
-def test_setup_logging_routes_client_and_server_loggers(tmp_path, isolated_root_logger, clean_env):
-    """Records from both `saldeosmart_mcp.http.client` and `.server` must land in the file."""
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-    log_file = _setup_logging()
-
-    logging.getLogger("saldeosmart_mcp.http.client").warning("hello from client")
-    logging.getLogger("saldeosmart_mcp.server").warning("hello from server")
-    for h in logging.getLogger().handlers:
-        h.flush()
-
-    contents = log_file.read_text(encoding="utf-8")
-    assert "hello from client" in contents
-    assert "hello from server" in contents
-    assert "saldeosmart_mcp.http.client" in contents
-    assert "saldeosmart_mcp.server" in contents
-
-
-def test_setup_logging_default_retention_is_one_week(tmp_path, isolated_root_logger, clean_env):
-    """Default SALDEO_LOG_RETENTION_DAYS must be 7 (one week)."""
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-
-    _setup_logging()
-
-    handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
-    )
-    assert handler.backupCount == 7
-    assert handler.when == "MIDNIGHT"
-
-
-def test_setup_logging_respects_custom_retention(tmp_path, isolated_root_logger, clean_env):
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-    clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "3")
-
-    _setup_logging()
-
-    handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
-    )
-    assert handler.backupCount == 3
-
-
-def test_setup_logging_invalid_retention_falls_back_to_default(
-    tmp_path, isolated_root_logger, clean_env
-):
-    """Garbage in SALDEO_LOG_RETENTION_DAYS shouldn't break startup."""
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-    clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "not-a-number")
-
-    _setup_logging()
-
-    handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
-    )
-    assert handler.backupCount == 7
-
-
-def test_setup_logging_zero_retention_is_clamped_to_one(
-    tmp_path, isolated_root_logger, clean_env
-):
-    """A retention of 0 or negative would disable rotation entirely; clamp to 1."""
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-    clean_env.setenv("SALDEO_LOG_RETENTION_DAYS", "0")
-
-    _setup_logging()
-
-    handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
-    )
-    assert handler.backupCount >= 1
-
-
-def test_setup_logging_is_idempotent(tmp_path, isolated_root_logger, clean_env):
-    """Calling main() twice (tests, reloads) must not stack file handlers."""
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-
-    _setup_logging()
-    _setup_logging()
-    _setup_logging()
-
-    file_handlers = [
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
-    ]
-    assert len(file_handlers) == 1
-
-
-def test_setup_logging_creates_missing_directory(tmp_path, isolated_root_logger, clean_env):
-    """First run must create ~/.saldeosmart/logs/ if it doesn't exist."""
-    target = tmp_path / "nested" / "does" / "not" / "exist"
-    clean_env.setenv("SALDEO_LOG_DIR", str(target))
-
-    log_file = _setup_logging()
-
-    assert target.is_dir()
-    assert log_file.parent == target
-
-
-def test_setup_logging_default_location_is_under_home(
-    isolated_root_logger, clean_env, monkeypatch, tmp_path
-):
-    """Without SALDEO_LOG_DIR, the file lives under $HOME/.saldeosmart/logs."""
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    monkeypatch.setattr(Path, "home", lambda: fake_home)
-
-    log_file = _setup_logging()
-
-    assert log_file == fake_home / ".saldeosmart" / "logs" / "saldeosmart.log"
-
-
-def test_setup_logging_honors_log_level(tmp_path, isolated_root_logger, clean_env):
-    clean_env.setenv("SALDEO_LOG_DIR", str(tmp_path))
-    clean_env.setenv("SALDEO_LOG_LEVEL", "DEBUG")
-
-    _setup_logging()
-
-    assert logging.getLogger().level == logging.DEBUG
-
-
-# ---- _error_payload --------------------------------------------------------------
-
-
-def test_error_payload_minimal():
-    e = SaldeoError(code="4302", message="User is locked")
-    assert _error_payload(e) == {"error": "4302", "message": "User is locked"}
-
-
-def test_error_payload_includes_http_status_when_present():
-    e = SaldeoError(code="4001", message="Invalid signature", http_status=403)
-    payload = _error_payload(e)
-    assert payload["http_status"] == 403
-
-
-def test_error_payload_includes_per_item_details():
-    e = SaldeoError(
-        code="VALIDATION",
-        message="some items failed",
-        details=[
-            ItemError(status="NOT_VALID", path="DOCUMENT_ID",
-                      message="must be unique", item_id="1"),
-            ItemError(status="ERROR", path="", message="not found", item_id="2"),
-        ],
-    )
-    payload = _error_payload(e)
-    assert len(payload["details"]) == 2
-    assert payload["details"][0]["path"] == "DOCUMENT_ID"
-    assert payload["details"][1]["item_id"] == "2"
-
-
-def test_error_payload_omits_optional_fields_when_absent():
-    e = SaldeoError(code="X", message="y")
-    payload = _error_payload(e)
-    assert "http_status" not in payload
-    assert "details" not in payload
-
 
 # ---- _build_search_xml -----------------------------------------------------------
 
@@ -494,6 +295,31 @@ def test_build_article_merge_xml_serializes_foreign_codes():
     assert codes[1].find("CODE").text == "X-2"
 
 
+def test_article_foreign_code_only_emits_short_name_and_code():
+    """The article-merge spec doesn't define CONTRACTOR_PROGRAM_ID inside
+    <FOREIGN_CODE>; sending it can be rejected by strict XSD validation."""
+    article = ArticleInput(
+        name="Towar X",
+        code="X-1",
+        foreign_codes=[
+            ForeignCodeInput(contractor_short_name="kontr", code="EXT-1"),
+        ],
+    )
+    root = ET.fromstring(_build_article_merge_xml([article]))
+    fc = root.find("ARTICLES/ARTICLE/FOREIGN_CODES/FOREIGN_CODE")
+    assert fc is not None
+    children = [child.tag for child in fc]
+    assert children == ["CONTRACTOR_SHORT_NAME", "CODE"]
+
+
+def test_article_merge_omits_foreign_codes_when_empty():
+    article = ArticleInput(name="Towar Y", code="Y-1")
+    root = ET.fromstring(_build_article_merge_xml([article]))
+    article_el = root.find("ARTICLES/ARTICLE")
+    assert article_el is not None
+    assert article_el.find("FOREIGN_CODES") is None
+
+
 def test_build_fee_merge_xml_wraps_fees_in_folder():
     fees = [FeeInput(type="Service", value="100.00", maturity="2024-03-31")]
     xml = _build_fee_merge_xml(year=2024, month=3, fees=fees)
@@ -556,6 +382,69 @@ def test_build_recognize_xml_passes_split_options():
     assert doc.find("SPLIT_MODE").text == "AUTO_TWO_SIDED"
     assert doc.find("NO_ROTATE").text == "true"
     assert doc.find("OVERWRITE_DATA").text == "false"
+
+
+# ---- document.sync: element ordering is strict -----------------------------------
+
+# XSD sequence (.temp/api-html-mirror/1_13/documentsync/document_sync_request.xsd):
+#   SALDEO_ID, CONTRACTOR_PROGRAM_ID, DOCUMENT_NUMBER, GUID, DESCRIPTION,
+#   NUMBERING_TYPE, ACCOUNT_DOCUMENT_NUMBER, DOCUMENT_STATUS, ISSUE_DATE,
+#   SALDEO_GUID
+EXPECTED_SYNC_ORDER = [
+    "SALDEO_ID",
+    "CONTRACTOR_PROGRAM_ID",
+    "DOCUMENT_NUMBER",
+    "GUID",
+    "DESCRIPTION",
+    "NUMBERING_TYPE",
+    "ACCOUNT_DOCUMENT_NUMBER",
+    "DOCUMENT_STATUS",
+    "ISSUE_DATE",
+    "SALDEO_GUID",
+]
+
+
+def test_document_sync_emits_elements_in_xsd_order():
+    sync = DocumentSyncInput(
+        saldeo_id="D20",
+        contractor_program_id="1235",
+        document_number="5120145263",
+        guid="GUID",
+        description="DESCRIPTION",
+        numbering_type="NUMBERING_TYPE",
+        account_document_number="ACCT-1",
+        document_status="BUFFER",
+        issue_date="2015-10-25",
+        saldeo_guid="00010001-0001-3000-934a-000000000020",
+    )
+    root = ET.fromstring(_build_document_sync_xml([sync]))
+    sync_el = root.find("DOCUMENT_SYNCS/DOCUMENT_SYNC")
+    assert sync_el is not None
+    actual_order = [child.tag for child in sync_el]
+    assert actual_order == EXPECTED_SYNC_ORDER
+
+
+def test_document_sync_omits_unset_optional_fields():
+    """Only the required identifiers are sent — unset Optional fields stay out."""
+    sync = DocumentSyncInput(
+        contractor_program_id="C1",
+        document_number="N1",
+        guid="G1",
+        description="D",
+        numbering_type="NT",
+        account_document_number="ADN",
+    )
+    root = ET.fromstring(_build_document_sync_xml([sync]))
+    sync_el = root.find("DOCUMENT_SYNCS/DOCUMENT_SYNC")
+    assert sync_el is not None
+    tags = {child.tag for child in sync_el}
+    # Optional fields not set:
+    assert "SALDEO_ID" not in tags
+    assert "DOCUMENT_STATUS" not in tags
+    assert "ISSUE_DATE" not in tags
+    assert "SALDEO_GUID" not in tags
+    # Required fields still present:
+    assert {"CONTRACTOR_PROGRAM_ID", "DOCUMENT_NUMBER", "GUID"}.issubset(tags)
 
 
 def test_build_document_sync_xml_emits_only_provided_keys():

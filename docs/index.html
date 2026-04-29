@@ -559,7 +559,7 @@ uv run saldeosmart-mcp     # console script declared in pyproject.toml</code></p
 </pre>
     </div>
 
-    <p>The package is organized as a strict stack. A higher layer may import from layers below it, never the other way around. A test (<code>tests/test_layering.py</code>) parses every import statement in the source tree and fails CI on any upward dependency.</p>
+    <p>The package is organized as a strict stack. A higher layer may import from layers below it, never the other way around. A test (<code>tests/unit/test_architecture.py</code>) parses every import statement in the source tree and fails CI on any upward dependency.</p>
 
 <pre><code>src/saldeosmart_mcp/
 ├── config.py          # SaldeoConfig — env-driven settings
@@ -667,9 +667,23 @@ uv run saldeosmart-mcp     # console script declared in pyproject.toml</code></p
 
     <h3>Unit tests (no network)</h3>
 <pre><code>make test
-# 74 tests covering: signing, gzip+base64 round trip, error envelope parsing
+# 130 tests covering: signing, gzip+base64 round trip, error envelope parsing
 # (top-level + per-item), URL redaction, request lock concurrency,
-# SecretStr token protection, every request-XML builder.</code></pre>
+# SecretStr token protection, every request-XML builder, package layering.</code></pre>
+
+    <p>Tests mirror the source layout — the home for a new test is wherever the production code it covers lives:</p>
+<pre><code>tests/
+├── conftest.py                       # shared fixtures (isolated_root_logger, clean_env)
+└── unit/
+    ├── test_architecture.py          # import-direction layering rules
+    ├── test_errors.py                # SaldeoError → MCP payload shape
+    ├── test_logging.py               # setup_logging env-var handling, rotation
+    ├── http/
+    │   └── test_client.py            # signing, gzip+base64, error-envelope parser
+    ├── models/
+    │   └── test_documents.py         # XML → Pydantic for documents/invoices
+    └── tools/
+        └── test_builders.py          # every request-XML builder + summarize_merge</code></pre>
 
     <h3>Live smoke test</h3>
     <p>Drop a <code>.env</code> at the repo root:</p>

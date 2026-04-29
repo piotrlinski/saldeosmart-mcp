@@ -8,9 +8,10 @@ write endpoints.
 
 from __future__ import annotations
 
+from datetime import date as _date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CategoryInput(BaseModel):
@@ -61,7 +62,7 @@ class DimensionInput(BaseModel):
     code: str
     name: str
     type: Literal["ENUM", "NUM", "LONG_NUM", "DATE"]
-    values: list[DimensionValueInput] = Field(default_factory=list)
+    values: list[DimensionValueInput] = Field(default_factory=list, max_length=1000)
 
 
 class ForeignCodeInput(BaseModel):
@@ -79,7 +80,7 @@ class ArticleInput(BaseModel):
     pkwiu: str | None = None
     for_documents: bool | None = None
     for_invoices: bool | None = None
-    foreign_codes: list[ForeignCodeInput] = Field(default_factory=list)
+    foreign_codes: list[ForeignCodeInput] = Field(default_factory=list, max_length=200)
 
 
 class FeeInput(BaseModel):
@@ -90,3 +91,14 @@ class FeeInput(BaseModel):
     maturity: str  # ISO date YYYY-MM-DD
     program_id: str | None = None
     description: str | None = None
+
+    @field_validator("maturity")
+    @classmethod
+    def _validate_iso_date(cls, v: str) -> str:
+        try:
+            _date.fromisoformat(v)
+        except ValueError as e:
+            raise ValueError(
+                f"maturity must be ISO date YYYY-MM-DD, got {v!r}"
+            ) from e
+        return v

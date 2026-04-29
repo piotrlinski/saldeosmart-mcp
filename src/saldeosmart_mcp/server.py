@@ -21,7 +21,7 @@ import logging
 # even from `python -c "from saldeosmart_mcp.tools import mcp; ..."`.
 from . import tools as _tools  # noqa: F401  — side-effect import
 from .logging import setup_logging
-from .tools._runtime import mcp, reset_client_for_tests
+from .tools._runtime import get_client, mcp, reset_client_for_tests
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,14 @@ def main() -> None:
     """Console-script entrypoint."""
     log_file = setup_logging()
     logger.info("SaldeoSMART MCP server starting; logs at %s", log_file)
+    # Fail fast on missing/invalid SALDEO_* env vars instead of surfacing the
+    # error mid-conversation on the first tool call. Warms the shared client
+    # too, so the first tool call doesn't pay the connection-pool setup cost.
+    try:
+        get_client()
+    except RuntimeError as e:
+        logger.error("Startup aborted: %s", e)
+        raise
     try:
         mcp.run()  # stdio transport — what Claude Desktop expects
     finally:

@@ -16,7 +16,7 @@ from __future__ import annotations
 import functools
 import logging
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar
 from xml.etree import ElementTree as ET
 
 from fastmcp import FastMCP
@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("SaldeoSMART")
 
 _T = TypeVar("_T")
+_P = ParamSpec("_P")
 
 # ---- Client lifecycle ------------------------------------------------------------
 
@@ -81,14 +82,16 @@ _reset_client_for_tests = reset_client_for_tests
 # ---- Decorators ------------------------------------------------------------------
 
 
-def saldeo_call(fn: Callable[..., _T]) -> Callable[..., _T | ErrorResponse]:
+def saldeo_call(fn: Callable[_P, _T]) -> Callable[_P, _T | ErrorResponse]:
     """Decorator: turn a SaldeoError raised inside a tool into ErrorResponse.
 
     Tool bodies stay focused on the happy path; the error envelope is uniform.
+    Uses ``ParamSpec`` so the wrapper preserves the wrapped tool's signature
+    for both mypy and IDE autocomplete.
     """
 
     @functools.wraps(fn)
-    def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T | ErrorResponse:
         try:
             return fn(*args, **kwargs)
         except SaldeoError as e:

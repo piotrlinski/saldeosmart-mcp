@@ -20,10 +20,23 @@ def merge_dimensions(
     company_program_id: str,
     dimensions: list[DimensionInput],
 ) -> MergeResult | ErrorResponse:
-    """Add or update accounting dimensions (SS12).
+    """Create or update analytical dimensions (custom document attributes).
 
-    For ``type=ENUM``, populate ``values`` with the allowed options. For
-    NUM/LONG_NUM/DATE, leave ``values`` empty — they accept free-form input.
+    A "dimension" is a custom column you can attach to any document (e.g.
+    "Cost center", "Project"). Match on ``code`` to update an existing
+    dimension. Saldeo op: ``dimension.merge`` (SS12). To set values on
+    documents themselves, use ``merge_document_dimensions``.
+
+    Args:
+        company_program_id: External program ID of the company.
+        dimensions: One DimensionInput per dimension. ``code``, ``name``,
+            and ``type`` are required.
+            - ``type=ENUM``: populate ``values`` with the allowed options.
+            - ``type=NUM`` / ``LONG_NUM`` / ``DATE``: free-form, leave
+              ``values`` empty.
+
+    Returns:
+        MergeResult on success, ErrorResponse on failure.
     """
     xml = _build_dimension_merge_xml(dimensions)
     root = get_client().post_command(
