@@ -361,3 +361,29 @@ def test_iter_item_errors_empty_on_all_success() -> None:
         "<DOCUMENT_ID>1</DOCUMENT_ID></DOCUMENT></DOCUMENTS></RESPONSE>"
     )
     assert iter_item_errors(ET.fromstring(xml)) == []
+
+
+def test_iter_item_errors_ignores_nested_status_inside_item_body() -> None:
+    """A nested <STATUS> inside an item body must not be misread as a row result.
+
+    Regression: a previous root.iter() walk descended into per-item bodies and
+    surfaced spurious failures whenever a nested element happened to be tagged
+    <STATUS>.
+    """
+    xml = """
+    <RESPONSE>
+      <STATUS>OK</STATUS>
+      <DOCUMENTS>
+        <DOCUMENT>
+          <UPDATE_STATUS>UPDATED</UPDATE_STATUS>
+          <DOCUMENT_ID>1</DOCUMENT_ID>
+          <DOCUMENT_ITEMS>
+            <DOCUMENT_ITEM>
+              <STATUS>NOT_VALID</STATUS>
+            </DOCUMENT_ITEM>
+          </DOCUMENT_ITEMS>
+        </DOCUMENT>
+      </DOCUMENTS>
+    </RESPONSE>
+    """
+    assert iter_item_errors(ET.fromstring(xml)) == []

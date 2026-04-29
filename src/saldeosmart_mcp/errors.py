@@ -156,47 +156,52 @@ def iter_item_errors(root: ET.Element) -> list[ItemError]:
     Returns an empty list if everything succeeded.
     """
     errors: list[ItemError] = []
-    for item in root.iter():
-        status_value: str | None = None
-        for tag in _ITEM_STATUS_TAGS:
-            child = item.find(tag)
-            if child is not None and child.text:
-                status_value = child.text.strip().upper()
-                break
-        if status_value is None or status_value in _ITEM_OK_VALUES:
-            continue
+    # Walk only container > row level: <RESPONSE><DOCUMENTS><DOCUMENT>...,
+    # <RESPONSE><PERSONNEL_DOCUMENTS><PERSONNEL_DOCUMENT>..., etc. Using
+    # root.iter() would descend into per-item bodies and mistake a nested
+    # <STATUS> (e.g. inside <DOCUMENT_ITEMS>/<ITEM>) for a row-level result.
+    for container in root:
+        for item in container:
+            status_value: str | None = None
+            for tag in _ITEM_STATUS_TAGS:
+                child = item.find(tag)
+                if child is not None and child.text:
+                    status_value = child.text.strip().upper()
+                    break
+            if status_value is None or status_value in _ITEM_OK_VALUES:
+                continue
 
-        item_id = next(
-            (_local_el_text(item, t) for t in _ITEM_ID_TAGS if item.find(t) is not None),
-            None,
-        )
+            item_id = next(
+                (_local_el_text(item, t) for t in _ITEM_ID_TAGS if item.find(t) is not None),
+                None,
+            )
 
-        # Validation errors: nested <ERRORS><ERROR><PATH/><MESSAGE/></ERROR></ERRORS>
-        nested = item.find("ERRORS")
-        added = False
-        if nested is not None:
-            for err in nested.findall("ERROR"):
+            # Validation errors: nested <ERRORS><ERROR><PATH/><MESSAGE/></ERROR></ERRORS>
+            nested = item.find("ERRORS")
+            added = False
+            if nested is not None:
+                for err in nested.findall("ERROR"):
+                    errors.append(
+                        ItemError(
+                            status=status_value,
+                            path=(_local_el_text(err, "PATH") or "").strip(),
+                            message=(_local_el_text(err, "MESSAGE") or "").strip(),
+                            item_id=item_id,
+                        )
+                    )
+                    added = True
+
+            # Operational errors: sibling <ERROR_MESSAGE/> or <STATUS_MESSAGE/>
+            if not added:
+                msg = (_local_el_text(item, "ERROR_MESSAGE") or "").strip() or (
+                    _local_el_text(item, "STATUS_MESSAGE") or ""
+                ).strip()
                 errors.append(
                     ItemError(
                         status=status_value,
-                        path=(_local_el_text(err, "PATH") or "").strip(),
-                        message=(_local_el_text(err, "MESSAGE") or "").strip(),
+                        path="",
+                        message=msg or f"item failed with status {status_value}",
                         item_id=item_id,
                     )
                 )
-                added = True
-
-        # Operational errors: sibling <ERROR_MESSAGE/> or <STATUS_MESSAGE/>
-        if not added:
-            msg = (_local_el_text(item, "ERROR_MESSAGE") or "").strip() or (
-                _local_el_text(item, "STATUS_MESSAGE") or ""
-            ).strip()
-            errors.append(
-                ItemError(
-                    status=status_value,
-                    path="",
-                    message=msg or f"item failed with status {status_value}",
-                    item_id=item_id,
-                )
-            )
     return errors

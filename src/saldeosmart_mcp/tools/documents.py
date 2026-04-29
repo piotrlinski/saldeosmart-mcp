@@ -22,7 +22,7 @@ from ..models import (
     MergeResult,
     RecognizeOptionInput,
 )
-from ._builders import build_folder_xml
+from ._builders import append_id_group, build_folder_xml
 from ._runtime import (
     get_client,
     mcp,
@@ -372,8 +372,6 @@ def _build_document_id_groups_xml(
     writings: list[int] | None,
     other_documents: list[int] | None,
 ) -> str:
-    from ._builders import append_id_group
-
     root = ET.Element("ROOT")
     append_id_group(root, "CONTRACTS", "CONTRACT", contracts)
     append_id_group(root, "INVOICES_COST", "INVOICE_COST", invoices_cost)
