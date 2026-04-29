@@ -387,3 +387,57 @@ def test_iter_item_errors_ignores_nested_status_inside_item_body() -> None:
     </RESPONSE>
     """
     assert iter_item_errors(ET.fromstring(xml)) == []
+
+
+# ---- post_command + extra_form (file attachments) -------------------------------
+
+
+def test_post_command_passes_extra_form_through_to_httpx() -> None:
+    """File-upload tools rely on extra_form keys reaching the wire as form data,
+    AND on the request signature covering those keys (Saldeo signs the full
+    param set — URL params + form fields)."""
+    client = _client()
+
+    captured: dict[str, object] = {}
+
+    def fake_post(path: str, params: dict[str, str], data: dict[str, str]) -> httpx.Response:
+        captured["path"] = path
+        captured["params"] = params
+        captured["data"] = data
+        return httpx.Response(
+            status_code=200,
+            text="<RESPONSE><STATUS>OK</STATUS></RESPONSE>",
+            request=httpx.Request("POST", f"http://x{path}"),
+        )
+
+    client._http.post = fake_post  # type: ignore[method-assign]
+
+    client.post_command(
+        "/api/xml/2.22/personnel_document/add",
+        xml_command="<ROOT/>",
+        query={"company_program_id": "abc"},
+        extra_form={"attmnt_1": "ZmFrZQ==", "attmnt_2": "Zm9vYmFy"},
+    )
+
+    data = captured["data"]
+    params = captured["params"]
+    assert isinstance(data, dict)
+    assert isinstance(params, dict)
+    assert data["attmnt_1"] == "ZmFrZQ=="
+    assert data["attmnt_2"] == "Zm9vYmFy"
+    assert "command" in data  # gzipped+base64 XML still present
+
+    # Signature must cover URL params + form fields. Recompute from scratch
+    # and compare against the value in `params`.
+    from saldeosmart_mcp.http.signing import RequestSigner
+
+    signed_params = {
+        "company_program_id": "abc",
+        "username": params["username"],
+        "req_id": params["req_id"],
+        "command": data["command"],
+        "attmnt_1": data["attmnt_1"],
+        "attmnt_2": data["attmnt_2"],
+    }
+    expected_sig = RequestSigner.sign(signed_params, "t")
+    assert params["req_sig"] == expected_sig
