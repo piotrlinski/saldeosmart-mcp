@@ -12,8 +12,6 @@ keywords = [
     "saldeosmart",
     "saldeo",
     "accounting",
-    "claude",
-    "anthropic",
     "fastmcp",
 ]
 classifiers = [

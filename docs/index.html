@@ -4,20 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SaldeoSMART MCP Server — Documentation</title>
-  <meta name="description" content="MCP server bridging Claude to the SaldeoSMART REST API: read documents, invoices, contractors, bank statements, and personnel data; create and update accounting records.">
+  <meta name="description" content="MCP server bridging any MCP-aware client to the SaldeoSMART REST API: read documents, invoices, contractors, bank statements, and personnel data; create and update accounting records.">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <aside class="sidebar">
   <div class="logo">SaldeoSMART MCP</div>
-  <div class="tagline">Claude ↔ SaldeoSMART REST API bridge</div>
+  <div class="tagline">MCP ↔ SaldeoSMART REST API bridge</div>
 
   <nav>
     <h3>Get started</h3>
     <a href="#overview">Overview</a>
     <a href="#install">Install &amp; run</a>
-    <a href="#claude-desktop">Claude Desktop</a>
+    <a href="#mcp-clients">MCP clients</a>
     <a href="#configuration">Configuration</a>
 
     <h3>Reference</h3>
@@ -43,8 +43,10 @@
   <section id="overview">
     <h1>SaldeoSMART MCP Server</h1>
     <p class="lead">
-      A Model Context Protocol (MCP) server that lets Claude read and write
-      accounting data in <a href="https://www.saldeosmart.pl/" target="_blank" rel="noopener">SaldeoSMART</a>:
+      A <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">Model Context Protocol</a>
+      (MCP) server that lets any MCP-aware client (Claude Desktop, Claude Code,
+      Cursor, Zed, MCP Inspector, custom SDKs) read and write accounting data
+      in <a href="https://www.saldeosmart.pl/" target="_blank" rel="noopener">SaldeoSMART</a>:
       companies, contractors, documents, invoices, bank statements, dimensions,
       categories, personnel records — without you ever touching the underlying
       gzip-base64-XML API.
@@ -52,23 +54,24 @@
 
     <div class="callout success">
       <strong>What you get out of the box.</strong>
-      26 typed tools (13 read + 13 write/merge), shipped as a Docker image.
-      Drop one entry into <code>claude_desktop_config.json</code> and Claude
-      can answer "what cost invoices did Acme send last month?", file a new
-      contractor, or push booking numbers from your ERP back to SaldeoSMART.
+      26 typed tools (13 read + 13 write/merge), shipped as a Docker image
+      and runnable via <code>uvx</code>. Drop one entry into your client's MCP
+      config and the LLM behind it can answer "what cost invoices did Acme
+      send last month?", file a new contractor, or push booking numbers from
+      your ERP back to SaldeoSMART.
     </div>
 
     <h2>What it does</h2>
     <ul>
       <li><strong>Wraps every flat REST endpoint of the SaldeoSMART API</strong> — versions 1.0 through 3.1 — as a Python function with typed inputs and Pydantic outputs.</li>
       <li><strong>Hides API quirks</strong>: MD5 request signing, XML→gzip→base64 encoding, the no-concurrent-requests rule, the per-item error envelope, gzip response decompression.</li>
-      <li><strong>Speaks MCP over stdio</strong>, the protocol Claude Desktop and other MCP clients use.</li>
+      <li><strong>Speaks MCP over stdio</strong>, the protocol every MCP-aware client uses.</li>
       <li><strong>Stays read-only by default at the smoke-test layer</strong>, so a misconfigured CI run can never mutate production accounting data.</li>
     </ul>
 
     <h2>Who it's for</h2>
     <ul>
-      <li>Bookkeepers using Claude as a copilot — "find the missing supplier invoice from last week."</li>
+      <li>Bookkeepers using an LLM copilot — "find the missing supplier invoice from last week."</li>
       <li>ERP integrators who need to push numbering back into SaldeoSMART after booking.</li>
       <li>Anyone scripting SaldeoSMART access in Python — the underlying <code>SaldeoClient</code> class works without MCP.</li>
     </ul>
@@ -108,17 +111,34 @@ uv run saldeosmart-mcp     # console script declared in pyproject.toml</code></p
 # wraps:  npx @modelcontextprotocol/inspector docker run --rm -i ...</code></pre>
   </section>
 
-  <section id="claude-desktop">
-    <h2>Wire it into Claude Desktop</h2>
+  <section id="mcp-clients">
+    <h2>Wire it into your MCP client</h2>
 
-    <p>Open <code>claude_desktop_config.json</code> on your machine:</p>
+    <p>The server speaks MCP over stdio, so any MCP-aware client can launch it. Pick a transport (Docker or <code>uvx</code>), then drop the appropriate snippet into your client's config.</p>
+
+    <h3>Credentials: env vars or CLI flags</h3>
+    <p>Both are accepted; CLI flags win when both are set for the same field:</p>
+    <table>
+      <thead>
+        <tr><th>Env var</th><th>CLI flag</th><th>Required</th><th>Default</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>SALDEO_USERNAME</code></td><td><code>--username</code></td><td>yes</td><td>—</td></tr>
+        <tr><td><code>SALDEO_API_TOKEN</code></td><td><code>--api-token</code></td><td>yes</td><td>—</td></tr>
+        <tr><td><code>SALDEO_BASE_URL</code></td><td><code>--base-url</code></td><td>no</td><td><code>https://saldeo.brainshare.pl</code></td></tr>
+      </tbody>
+    </table>
+    <p>Use <code>https://saldeo-test.brainshare.pl</code> for the SaldeoSMART test environment.</p>
+
+    <h3>Claude Desktop</h3>
+    <p>Edit <code>claude_desktop_config.json</code>:</p>
     <ul>
       <li><strong>macOS:</strong> <code>~/Library/Application Support/Claude/claude_desktop_config.json</code></li>
       <li><strong>Windows:</strong> <code>%APPDATA%\Claude\claude_desktop_config.json</code></li>
       <li><strong>Linux:</strong> <code>~/.config/Claude/claude_desktop_config.json</code></li>
     </ul>
 
-    <p>Add an entry:</p>
+    <p>Docker form:</p>
 <pre><code>{
   "mcpServers": {
     "saldeosmart": {
@@ -126,24 +146,69 @@ uv run saldeosmart-mcp     # console script declared in pyproject.toml</code></p
       "args": [
         "run", "--rm", "-i",
         "-e", "SALDEO_USERNAME=your-login",
-        "-e", "SALDEO_API_TOKEN=your-token-from-settings",
-        "-e", "SALDEO_BASE_URL=https://saldeo.brainshare.pl",
+        "-e", "SALDEO_API_TOKEN=your-token",
         "saldeosmart-mcp:latest"
       ]
     }
   }
 }</code></pre>
 
-    <div class="callout">
-      <strong>Keep credentials out of Claude's config.</strong>
-      Create <code>~/saldeosmart.env</code> (with <code>chmod 600</code>) holding
-      <code>KEY=VALUE</code> lines, then replace the <code>-e</code> flags with
-      <code>"--env-file", "/Users/you/saldeosmart.env"</code>. Easier to rotate
-      and easier to keep out of source control.
-    </div>
+    <p><code>uvx</code> form (no Docker daemon needed):</p>
+<pre><code>{
+  "mcpServers": {
+    "saldeosmart": {
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/piotrlinski/saldeosmart-mcp",
+        "saldeosmart-mcp",
+        "--username", "your-login",
+        "--api-token", "your-token"
+      ]
+    }
+  }
+}</code></pre>
 
-    <p>Restart Claude Desktop. You should see the tools icon 🔧 in the chat
-    composer; clicking it lists every tool below.</p>
+    <p>Restart the app afterwards. If it complains it can't find <code>docker</code> / <code>uvx</code>, give it the absolute path from <code>which docker</code> / <code>which uvx</code> instead of the bare name.</p>
+
+    <h3>Claude Code</h3>
+    <p>The CLI registers servers via <code>claude mcp add</code>:</p>
+<pre><code># Docker
+claude mcp add saldeosmart -- \
+    docker run --rm -i \
+        -e SALDEO_USERNAME=your-login \
+        -e SALDEO_API_TOKEN=your-token \
+        saldeosmart-mcp:latest
+
+# uvx
+claude mcp add saldeosmart -- \
+    uvx --from git+https://github.com/piotrlinski/saldeosmart-mcp saldeosmart-mcp \
+    --username your-login --api-token your-token</code></pre>
+    <p>Run <code>/mcp</code> inside Claude Code to confirm the server is registered.</p>
+
+    <h3>Cursor IDE</h3>
+    <p>Edit <code>~/.cursor/mcp.json</code> (global) or <code>.cursor/mcp.json</code> (per-project). The shape matches Claude Desktop's:</p>
+<pre><code>{
+  "mcpServers": {
+    "saldeosmart": {
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/piotrlinski/saldeosmart-mcp",
+        "saldeosmart-mcp",
+        "--username", "your-login",
+        "--api-token", "your-token"
+      ]
+    }
+  }
+}</code></pre>
+    <p>Reload from <strong>Settings → Cursor Settings → MCP</strong>.</p>
+
+    <h3>Zed and other MCP clients</h3>
+    <p>The launch command and args above work in any MCP-aware client. Consult the client's docs for where to put the JSON / where to invoke <code>add</code>.</p>
+
+    <div class="callout">
+      <strong>Keep credentials out of the config file.</strong>
+      Drop them into <code>~/saldeosmart.env</code> (<code>chmod 600</code>) as <code>KEY=VALUE</code> lines, then replace the inline <code>-e</code> flags with <code>"--env-file", "/Users/you/saldeosmart.env"</code> in the Docker form. Easier to rotate, easier to keep out of source control.
+    </div>
   </section>
 
   <section id="configuration">

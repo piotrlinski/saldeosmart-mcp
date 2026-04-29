@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# See README.md for build/run instructions and Claude Desktop config.
+# See README.md for build/run instructions and MCP-client config.
 
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 

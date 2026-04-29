@@ -24,7 +24,7 @@
 
 ## Screenshots / output (optional)
 
-<!-- Paste a snippet of MCP Inspector / Claude Desktop output, or relevant log lines. Redact tokens. -->
+<!-- Paste a snippet of MCP Inspector / MCP-client output, or relevant log lines. Redact tokens. -->
 
 ## Checklist
 

@@ -208,7 +208,7 @@ def list_recognized_documents(
 
     Returns the same ``DocumentList`` shape as ``list_documents``. The richer
     nested data (articles, OCR origins, dimensions, KSeF) is dropped to keep
-    the response Claude-friendly; reach for the lower-level client if needed.
+    the response LLM-friendly; reach for the lower-level client if needed.
     """
     if not ocr_origin_ids:
         return ErrorResponse(

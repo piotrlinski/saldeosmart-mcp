@@ -45,9 +45,25 @@ _P = ParamSpec("_P")
 _SHARED_CLIENT: SaldeoClient | None = None
 
 
-def get_client() -> SaldeoClient:
-    """Return the process-wide SaldeoClient, initialising it on first use.
+def init_client(config: SaldeoConfig) -> SaldeoClient:
+    """Create the shared SaldeoClient from an explicit config.
 
+    Called once by ``server.main()`` after CLI args + env vars are resolved
+    into a ``SaldeoConfig``. Idempotent: a second call returns the existing
+    cached client without rebuilding it.
+    """
+    global _SHARED_CLIENT
+    if _SHARED_CLIENT is None:
+        _SHARED_CLIENT = SaldeoClient(config)
+    return _SHARED_CLIENT
+
+
+def get_client() -> SaldeoClient:
+    """Return the process-wide SaldeoClient.
+
+    Initialised eagerly by ``server.main()`` via :func:`init_client`. As a
+    convenience for ad-hoc scripts and tests, falls back to constructing a
+    config from ``SALDEO_*`` env vars when no client has been initialised yet.
     A single client lets httpx pool connections across tool calls and matches
     the spec's "no concurrent requests" rule.
     """

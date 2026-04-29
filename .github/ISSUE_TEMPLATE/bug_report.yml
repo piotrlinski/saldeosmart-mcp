@@ -49,6 +49,9 @@ body:
       label: MCP client
       options:
         - Claude Desktop
+        - Claude Code
+        - Cursor
+        - Zed
         - MCP Inspector
         - Custom / SDK
         - Other
