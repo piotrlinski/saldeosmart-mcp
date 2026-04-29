@@ -62,5 +62,5 @@ class ContractorInput(BaseModel):
     contact_person: str | None = None
     description: str | None = None
     payment_days: int | None = None
-    bank_accounts: list[BankAccountInput] = Field(default_factory=list)
-    emails: list[str] = Field(default_factory=list)
+    bank_accounts: list[BankAccountInput] = Field(default_factory=list, max_length=50)
+    emails: list[str] = Field(default_factory=list, max_length=50)

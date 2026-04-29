@@ -21,7 +21,8 @@ from pathlib import Path
 
 import pytest
 
-PACKAGE_ROOT = Path(__file__).resolve().parent.parent / "src" / "saldeosmart_mcp"
+# tests/unit/test_architecture.py -> tests/unit/ -> tests/ -> repo root
+PACKAGE_ROOT = Path(__file__).resolve().parent.parent.parent / "src" / "saldeosmart_mcp"
 
 # Layer ordering: a module may only import from itself or layers BELOW it.
 # Lower index = lower (foundational) layer; higher index = higher (app) layer.
@@ -119,7 +120,7 @@ def test_module_imports_obey_layering(py_file: Path) -> None:
         # Fail loudly so someone updates the layer map intentionally.
         pytest.fail(
             f"{py_file.name}: top-level layer {source_layer_name!r} is not in "
-            f"LAYERS; update tests/test_layering.py to declare its position."
+            f"LAYERS; update tests/unit/test_architecture.py to declare its position."
         )
     source_layer = LAYERS[source_layer_name]
 
