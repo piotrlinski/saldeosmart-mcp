@@ -41,6 +41,7 @@ from saldeosmart_mcp.tools.documents import (
     add_documents,
     correct_documents,
     delete_documents,
+    import_documents,
     merge_document_dimensions,
     recognize_documents,
     sync_documents,
@@ -70,6 +71,7 @@ from saldeosmart_mcp.tools.personnel import add_employees, add_personnel_documen
         (add_documents, "documents", {}, True),
         (add_personnel_documents, "documents", {}, True),
         (correct_documents, "documents", {}, True),
+        (import_documents, "documents", {}, True),
     ],
 )
 def test_empty_list_returns_empty_input_error(

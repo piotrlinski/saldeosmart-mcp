@@ -271,6 +271,193 @@ class DocumentCorrectInput(BaseModel):
     self_learning: bool | None = None
 
 
+# ---- document.import (3.0) -------------------------------------------------------
+
+
+DocumentModelType = Literal[
+    "CONTRACT",
+    "INVOICE_COST",
+    "INVOICE_INTERNAL",
+    "INVOICE_MATERIAL",
+    "INVOICE_SALES",
+    "ORDER",
+    "WRITING",
+]
+
+
+ContractorAreaType = Literal[
+    "COUNTRY",
+    "EU",
+    "EU_3",
+    "EU_IMPORT_SERVICES",
+    "EU_TAX_PURCHASER",
+    "NON_COUNTRY",
+    "NON_COUNTRY_NP",
+    "NON_EU",
+    "NON_EU_TAX_PURCHASER",
+    "NON_EU_TRAVEL",
+    "NON_EU_VAT_RETURN",
+    "NO_VAT",
+    "OUTSIDE_EU_IMPORT_SERVICES",
+    "PROCEDURE_OSS",
+    "REVERSE_CHARGE",
+    "REVERSE_CHARGE_SERVICES",
+    "TAXPRO_IMPORT_GOODS_ART33A",
+    "TAXPRO_IMPORT_SERVICES_ART28B",
+    "TAXPRO_IMPORT_SERVICES_NO_ART28B",
+    "TAXPRO_NOT_APPLICABLE",
+    "TAXPRO_REVERSE_CHARGE_ART27_PAR1_P5",
+    "TAXPRO_REVERSE_CHARGE_ART27_PAR1_P7_P8",
+]
+
+
+class DocumentImportTypeInput(BaseModel):
+    """``<DOCUMENT_TYPE>`` choice for document.import — by name+model or by ID."""
+
+    short_name: str | None = None
+    model_type: DocumentModelType | None = None
+    id: int | None = None
+
+
+class DocumentImportCurrencyInput(BaseModel):
+    """``<CURRENCY>`` block on a ``DocumentImportInput``."""
+
+    iso4217: str
+    date: str  # ISO YYYY-MM-DD
+    rate: str | None = None
+
+
+class DocumentImportDimensionInput(BaseModel):
+    """``<DIMENSION>`` row inside a DIMENSIONS list (header or per-item)."""
+
+    name: str
+    value: str
+
+
+class DocumentImportVATRegistryInput(BaseModel):
+    """One ``<VAT_REGISTRY>`` summary inside ``DocumentImportVATInput``."""
+
+    rate: str
+    netto: str
+    vat: str
+
+
+class DocumentImportVATItemInput(BaseModel):
+    """One ``<ITEM>`` inside a VAT_DOCUMENT.ITEMS block."""
+
+    rate: str
+    netto: str
+    vat: str
+    category: str | None = None
+    description: str | None = None
+    dimensions: list[DocumentImportDimensionInput] = Field(default_factory=list)
+
+
+class DocumentImportVATInput(BaseModel):
+    """``<VAT_DOCUMENT>`` block for VAT-bearing imports."""
+
+    vat_registries: list[DocumentImportVATRegistryInput] = Field(default_factory=list)
+    items: list[DocumentImportVATItemInput] = Field(default_factory=list)
+
+
+class DocumentImportNoVATItemInput(BaseModel):
+    """One ``<ITEM>`` inside a NO_VAT_DOCUMENT.ITEMS block."""
+
+    value: str
+    category: str | None = None
+    description: str | None = None
+    dimensions: list[DocumentImportDimensionInput] = Field(default_factory=list)
+
+
+class DocumentImportNoVATInput(BaseModel):
+    """``<NO_VAT_DOCUMENT>`` block for non-VAT imports."""
+
+    total_value: str | None = None
+    items: list[DocumentImportNoVATItemInput] = Field(default_factory=list)
+
+
+class DocumentImportLineItemInput(BaseModel):
+    """One ``<DOCUMENT_ITEM>`` inside DOCUMENT_ITEMS — product line."""
+
+    code: str | None = None
+    name: str | None = None
+    amount: str | None = None
+    unit: str | None = None
+    rate: str | None = None
+    unit_value: str | None = None
+    netto: str | None = None
+    vat: str | None = None
+    gross: str | None = None
+    category: str | None = None
+    dimension: DocumentImportDimensionInput | None = None
+
+
+class DocumentImportPaymentInput(BaseModel):
+    """One ``<PAYMENT>`` inside PAYMENTS — partial-payment record."""
+
+    date: str  # ISO YYYY-MM-DD
+    amount: str
+
+
+class DocumentImportAttachmentInput(BaseModel):
+    """One ``<ATTACHMENT>`` inside a DocumentImportInput.attachments list.
+
+    Distinct from :class:`CloseAttachmentInput` — document.import attachments
+    only carry an optional description; no TYPE / NAME / SHORT_DESCRIPTION.
+    """
+
+    attachment: Attachment
+    description: str | None = None
+
+
+class DocumentImportInput(BaseModel):
+    """One ``<DOCUMENT>`` row for ``document.import`` (3.0).
+
+    Saldeo accepts up to 50 documents per request. The required fields are
+    ``year``, ``month``, ``document_type``, plus the ``attachment``
+    (delivered as the matching ``attmnt_N`` form field). Up to 5 supporting
+    attachments per document via ``attachments``.
+
+    The ``vat_document`` / ``no_vat_document`` pair is mutually exclusive
+    per the XSD's ``<xs:choice>``; provide whichever matches the document
+    flavor (VAT-bearing invoices vs accounts / no-VAT documents).
+    """
+
+    year: int
+    month: int
+    document_type: DocumentImportTypeInput
+    attachment: Attachment
+    archival_number: str | None = None
+    receive_date: str | None = None
+    category: str | None = None
+    description: str | None = None
+    registry: str | None = None
+    number: str | None = None
+    issue_date: str | None = None
+    sale_date: str | None = None
+    payment_date: str | None = None
+    payment_type: str | None = None
+    is_corrective: bool | None = None
+    corr_inv_num: str | None = None
+    corr_inv_date: str | None = None
+    is_cash_basis: bool | None = None
+    is_mpp: bool | None = None
+    contractor_id: int | None = None
+    contractor_area: ContractorAreaType | None = None
+    payer_contractor_id: int | None = None
+    country_code_vat_number: str | None = None
+    bank_account: str | None = None
+    currency: DocumentImportCurrencyInput | None = None
+    dimensions: list[DocumentImportDimensionInput] = Field(default_factory=list)
+    vat_document: DocumentImportVATInput | None = None
+    no_vat_document: DocumentImportNoVATInput | None = None
+    document_items: list[DocumentImportLineItemInput] = Field(default_factory=list)
+    payments: list[DocumentImportPaymentInput] = Field(default_factory=list)
+    attachments: list[DocumentImportAttachmentInput] = Field(
+        default_factory=list, max_length=5
+    )
+
+
 class DocumentUpdateInput(BaseModel):
     """One document edit for ``document.update`` (SS17).
 

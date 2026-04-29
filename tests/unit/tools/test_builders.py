@@ -46,6 +46,14 @@ from saldeosmart_mcp.models import (
     DocumentCorrectInput,
     DocumentDimensionInput,
     DocumentDimensionValueInput,
+    DocumentImportAttachmentInput,
+    DocumentImportCurrencyInput,
+    DocumentImportDimensionInput,
+    DocumentImportInput,
+    DocumentImportTypeInput,
+    DocumentImportVATInput,
+    DocumentImportVATItemInput,
+    DocumentImportVATRegistryInput,
     DocumentSyncInput,
     DocumentUpdateInput,
     EmployeeAddInput,
@@ -83,6 +91,7 @@ from saldeosmart_mcp.tools.documents import (
     _build_document_delete_xml,
     _build_document_dimension_xml,
     _build_document_id_groups_xml,
+    _build_document_import_xml,
     _build_document_sync_xml,
     _build_document_update_xml,
     _build_ocr_id_list_xml,
@@ -1025,3 +1034,127 @@ def test_assurance_renew_partner_variant_emits_underpayment() -> None:
     assert details is not None
     assert details.findtext("TYPE") == "PARTNER"
     assert details.findtext("ZUS_UNDERPAYMENT") == "50.00"
+
+
+# ---- _build_document_import_xml -------------------------------------------------
+
+
+def test_document_import_emits_minimal_required_fields() -> None:
+    """The 3.0 import shape: <DOCUMENT> always carries ATTMNT, ATTMNT_NAME,
+    YEAR, MONTH, DOCUMENT_TYPE in that order."""
+    docs = [
+        DocumentImportInput(
+            year=2026,
+            month=4,
+            document_type=DocumentImportTypeInput(short_name="DS",
+                                                  model_type="INVOICE_SALES"),
+            attachment=Attachment(path="/x/inv.pdf"),
+        )
+    ]
+    prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="inv.pdf")]
+    el = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
+        "DOCUMENTS/DOCUMENT"
+    )
+    assert el is not None
+    leading = [c.tag for c in el][:5]
+    assert leading == ["ATTMNT", "ATTMNT_NAME", "YEAR", "MONTH", "DOCUMENT_TYPE"]
+    assert el.findtext("ATTMNT") == "1"
+    assert el.findtext("DOCUMENT_TYPE/SHORT_NAME") == "DS"
+    assert el.findtext("DOCUMENT_TYPE/MODEL_TYPE") == "INVOICE_SALES"
+
+
+def test_document_import_picks_id_branch_for_document_type() -> None:
+    docs = [
+        DocumentImportInput(
+            year=2026,
+            month=4,
+            document_type=DocumentImportTypeInput(id=42),
+            attachment=Attachment(path="/x/a.pdf"),
+        )
+    ]
+    prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="a.pdf")]
+    type_el = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
+        "DOCUMENTS/DOCUMENT/DOCUMENT_TYPE"
+    )
+    assert type_el is not None
+    assert type_el.findtext("ID") == "42"
+    assert type_el.find("SHORT_NAME") is None  # ID branch wins
+
+
+def test_document_import_emits_currency_dimensions_vat_block() -> None:
+    docs = [
+        DocumentImportInput(
+            year=2026,
+            month=4,
+            document_type=DocumentImportTypeInput(short_name="FK",
+                                                  model_type="INVOICE_COST"),
+            attachment=Attachment(path="/x/a.pdf"),
+            currency=DocumentImportCurrencyInput(
+                iso4217="EUR", date="2026-04-01", rate="4.3000"
+            ),
+            dimensions=[
+                DocumentImportDimensionInput(name="Cost center", value="OPS"),
+            ],
+            vat_document=DocumentImportVATInput(
+                vat_registries=[
+                    DocumentImportVATRegistryInput(rate="23", netto="100.00", vat="23.00"),
+                ],
+                items=[
+                    DocumentImportVATItemInput(
+                        rate="23", netto="100.00", vat="23.00",
+                        category="Materials", description="Office supplies",
+                    ),
+                ],
+            ),
+        )
+    ]
+    prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="a.pdf")]
+    doc = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
+        "DOCUMENTS/DOCUMENT"
+    )
+    assert doc is not None
+    assert doc.findtext("CURRENCY/CURRENCY_ISO4217") == "EUR"
+    assert doc.findtext("CURRENCY/CURRENCY_RATE") == "4.3000"
+    assert doc.findtext("DIMENSIONS/DIMENSION/NAME") == "Cost center"
+    assert doc.findtext("VAT_DOCUMENT/VAT_REGISTRIES/VAT_REGISTRY/RATE") == "23"
+    assert doc.findtext("VAT_DOCUMENT/ITEMS/ITEM/CATEGORY") == "Materials"
+    assert doc.find("NO_VAT_DOCUMENT") is None  # VAT branch wins
+
+
+def test_document_import_threads_supporting_attachments_after_source_file() -> None:
+    """Each <DOCUMENT> consumes 1 + len(doc.attachments) prepared entries:
+    the source file first, then each <ATTACHMENT>'s ATTMNT reference."""
+    docs = [
+        DocumentImportInput(
+            year=2026,
+            month=4,
+            document_type=DocumentImportTypeInput(short_name="DS"),
+            attachment=Attachment(path="/x/main.pdf"),
+            attachments=[
+                DocumentImportAttachmentInput(
+                    attachment=Attachment(path="/x/extra1.pdf"),
+                    description="annex 1",
+                ),
+                DocumentImportAttachmentInput(
+                    attachment=Attachment(path="/x/extra2.pdf"),
+                ),
+            ],
+        )
+    ]
+    prepared = [
+        PreparedAttachment(key="1", form_key="attmnt_1", name="main.pdf"),
+        PreparedAttachment(key="2", form_key="attmnt_2", name="extra1.pdf"),
+        PreparedAttachment(key="3", form_key="attmnt_3", name="extra2.pdf"),
+    ]
+    doc = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
+        "DOCUMENTS/DOCUMENT"
+    )
+    assert doc is not None
+    assert doc.findtext("ATTMNT") == "1"
+    assert doc.findtext("ATTMNT_NAME") == "main.pdf"
+    extras = doc.findall("ATTACHMENTS/ATTACHMENT")
+    assert len(extras) == 2
+    assert extras[0].findtext("ATTMNT") == "2"
+    assert extras[0].findtext("DESCRIPTION") == "annex 1"
+    assert extras[1].findtext("ATTMNT") == "3"
+    assert extras[1].find("DESCRIPTION") is None
