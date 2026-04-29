@@ -6,8 +6,8 @@ Two flavours of error live here:
   Saldeo returned a structured ERROR envelope, an HTTP failure with no
   body, or a parse error.
 - ``ErrorResponse`` / ``ItemErrorPayload`` / ``MergeResult`` (Pydantic
-  models) — what gets serialized over MCP back to Claude, so the LLM
-  receives something with a stable JSON Schema.
+  models) — what gets serialized over MCP back to the calling client, so
+  the LLM on the other side receives something with a stable JSON Schema.
 
 ``ItemError`` (dataclass) is the in-process representation that bridges
 between the two: the per-item walker produces them, then they're converted

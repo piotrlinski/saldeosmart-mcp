@@ -3,7 +3,7 @@
 Loads SALDEO_USERNAME/SALDEO_API_TOKEN/SALDEO_BASE_URL from a `.env` file at the
 repo root, then walks every @mcp.tool exported by `saldeosmart_mcp.server`,
 printing pass/fail for each. Designed to surface which endpoints are broken
-without needing Claude Desktop in the loop.
+without needing an MCP client in the loop.
 
 Run:
     uv run python scripts/smoke_test.py
