@@ -6,7 +6,7 @@
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Checked with mypy](https://img.shields.io/badge/mypy-strict-2a6db2.svg)](https://mypy-lang.org/)
 
-MCP server for [SaldeoSMART](https://www.saldeosmart.pl/) — gives Claude tools to read and (optionally) modify documents, invoices, contractors, dimensions, articles, employees, and personnel documents on your account.
+MCP server for [SaldeoSMART](https://www.saldeosmart.pl/) — exposes tools to read and (optionally) modify documents, invoices, contractors, dimensions, articles, employees, and personnel documents on your account, over the [Model Context Protocol](https://modelcontextprotocol.io/). Works with any MCP-aware client (Claude Desktop, Claude Code, Cursor, Zed, MCP Inspector, custom SDK).
 
 📖 **Full HTML documentation:** see [`docs/`](docs/index.html) — published to GitHub Pages by [`.github/workflows/pages.yml`](.github/workflows/pages.yml). Enable once under **Settings → Pages → Source: GitHub Actions**, then every push to `master` that touches `docs/**` republishes the site at `https://<owner>.github.io/<repo>/`.
 
@@ -72,16 +72,19 @@ Errors land in `ErrorResponse` — see [`docs/ERROR_CODES.md`](docs/ERROR_CODES.
 
 ## Requirements
 
-To run the server (production):
+To run the server (production), pick **one** transport:
 
 - **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** ≥ 24 — image is built from `docker/Dockerfile`. The Docker daemon must be running.
-- **GNU Make** — for `make build` / `make run`. Standard on macOS/Linux; on Windows use WSL or `make` from chocolatey.
+- **[`uv`](https://docs.astral.sh/uv/) ≥ 0.4** — `uvx` (alias for `uv tool run`) launches the package straight from PyPI or git, no Docker daemon required. Handles Python ≥ 3.10 automatically.
+
+You'll also need:
+
 - **A SaldeoSMART account with API access** — generate the token in **Account settings → API**.
-- **Claude Desktop** (if you want to wire it into Claude).
+- **An MCP-aware client** — Claude Desktop, Claude Code, Cursor, Zed, MCP Inspector, or your own SDK harness. See [MCP client configuration](#mcp-client-configuration) below.
 
 For development only:
 
-- **[`uv`](https://docs.astral.sh/uv/)** — runs tests/lint in a local `.venv`. Handles Python ≥ 3.10 from `pyproject.toml` automatically. Not needed to build the Docker image — uv lives in the builder stage of the Dockerfile.
+- **GNU Make** — for `make build` / `make run` / `make test`. Standard on macOS/Linux; on Windows use WSL or `make` from chocolatey.
 - **Node.js + npx** — optional, for the MCP Inspector (`make inspector`).
 
 > ⚠ On some plans you need to email `api@saldeosmart.pl` to enable API access before you can generate a token.
@@ -128,15 +131,55 @@ You can override the image tag or Dockerfile path:
 IMAGE=saldeosmart-mcp:dev make build
 ```
 
-## Claude Desktop configuration
+## MCP client configuration
 
-Open `claude_desktop_config.json`:
+The server speaks MCP over stdio, so any MCP-aware client can launch it. Pick the transport (Docker or `uvx`) and the client from the matrix below — the same env-var or CLI-flag form works in any of them.
+
+### Credentials: env vars or CLI flags
+
+Both shapes are accepted; CLI flags win when both are set for the same field:
+
+| Env var | CLI flag | Required | Default |
+| ------- | -------- | -------- | ------- |
+| `SALDEO_USERNAME`  | `--username`  | yes | — |
+| `SALDEO_API_TOKEN` | `--api-token` | yes | — |
+| `SALDEO_BASE_URL`  | `--base-url`  | no  | `https://saldeo.brainshare.pl` |
+
+Use `https://saldeo-test.brainshare.pl` for the SaldeoSMART test environment.
+
+### Run with Docker
+
+After `make build` (or `docker pull` once an image is published), the launch command is:
+
+```bash
+docker run --rm -i \
+    -e SALDEO_USERNAME=your-login \
+    -e SALDEO_API_TOKEN=your-token \
+    saldeosmart-mcp:latest
+```
+
+`-i` keeps stdin attached (MCP uses stdio); `--rm` cleans up the stopped container after the client disconnects.
+
+### Run with `uvx`
+
+`uvx` resolves the package on demand into an isolated venv, then runs the console script — no clone, no `pip install`, no Docker daemon. Until the package is on PyPI, point uvx at the GitHub URL:
+
+```bash
+# From PyPI (once published):
+uvx saldeosmart-mcp --username your-login --api-token your-token
+
+# From source (works today):
+uvx --from git+https://github.com/piotrlinski/saldeosmart-mcp saldeosmart-mcp \
+    --username your-login --api-token your-token
+```
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json`:
 
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux:** `~/.config/Claude/claude_desktop_config.json`
-
-Add an entry:
 
 ```json
 {
@@ -146,8 +189,7 @@ Add an entry:
       "args": [
         "run", "--rm", "-i",
         "-e", "SALDEO_USERNAME=your-login",
-        "-e", "SALDEO_API_TOKEN=your-token-from-settings",
-        "-e", "SALDEO_BASE_URL=https://saldeo.brainshare.pl",
+        "-e", "SALDEO_API_TOKEN=your-token",
         "saldeosmart-mcp:latest"
       ]
     }
@@ -155,17 +197,89 @@ Add an entry:
 }
 ```
 
-The `-i` and `--rm` flags are required: MCP uses stdio, so the container must have stdin attached (`-i`), and there's no point keeping stopped containers around after the session (`--rm`). The `-e KEY=value` form sets the variable inside the container regardless of the host shell — credentials live in `claude_desktop_config.json`, not in `~/.zshrc` / `~/.bashrc`.
+…or, with `uvx`:
 
-> 🔒 If you'd rather not keep the token in Claude's config, create `~/saldeosmart.env` (`chmod 600`) with `KEY=VALUE` lines and replace `-e ...` with `"--env-file", "/Users/you/saldeosmart.env"`. Easy to keep out of source control and rotate without touching Claude's config.
+```json
+{
+  "mcpServers": {
+    "saldeosmart": {
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/piotrlinski/saldeosmart-mcp",
+        "saldeosmart-mcp",
+        "--username", "your-login",
+        "--api-token", "your-token"
+      ]
+    }
+  }
+}
+```
 
-If Claude Desktop reports that it can't find `docker`, supply the absolute path from `which docker` instead of the bare name.
+Restart the app after editing. If the client reports it can't find `docker` / `uvx`, supply the absolute path from `which docker` / `which uvx` instead of the bare name.
 
-For testing, use `https://saldeo-test.brainshare.pl` as the `SALDEO_BASE_URL`.
+### Claude Code
 
-Restart Claude Desktop. You should see the tools icon 🔧 in the chat composer.
+The CLI registers MCP servers via `claude mcp add`:
 
-## Local test (no Claude)
+```bash
+# Docker
+claude mcp add saldeosmart -- \
+    docker run --rm -i \
+        -e SALDEO_USERNAME=your-login \
+        -e SALDEO_API_TOKEN=your-token \
+        saldeosmart-mcp:latest
+
+# uvx
+claude mcp add saldeosmart -- \
+    uvx --from git+https://github.com/piotrlinski/saldeosmart-mcp saldeosmart-mcp \
+    --username your-login --api-token your-token
+```
+
+Then `/mcp` inside Claude Code to confirm the server is registered.
+
+### Cursor IDE
+
+Edit `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per-project):
+
+```json
+{
+  "mcpServers": {
+    "saldeosmart": {
+      "command": "uvx",
+      "args": [
+        "--from", "git+https://github.com/piotrlinski/saldeosmart-mcp",
+        "saldeosmart-mcp",
+        "--username", "your-login",
+        "--api-token", "your-token"
+      ]
+    }
+  }
+}
+```
+
+The Docker form is identical to the Claude Desktop snippet above. Reload Cursor's MCP servers from **Settings → Cursor Settings → MCP**.
+
+### Keeping credentials out of the config file
+
+If you'd rather not store the token in plaintext in your client config, drop it into a `chmod 600` env file and have Docker load it:
+
+```bash
+# ~/saldeosmart.env  (chmod 600)
+SALDEO_USERNAME=your-login
+SALDEO_API_TOKEN=your-token
+```
+
+```json
+"args": [
+  "run", "--rm", "-i",
+  "--env-file", "/Users/you/saldeosmart.env",
+  "saldeosmart-mcp:latest"
+]
+```
+
+The `uvx` form works the same way if you pre-`export` the env vars in the shell that launches the MCP client (or use `direnv` per project).
+
+## Local test (no MCP client)
 
 ```bash
 export SALDEO_USERNAME=your-login
@@ -302,7 +416,7 @@ These endpoints exist in the API but aren't wrapped as MCP tools yet — the com
 - `invoice.add` (3.0/3.1, SSK06)
 - `employee.add` (P03)
 - `personnel_document.add` (P04)
-- `company.create` (SS01) and `company.synchronize` (SS15) — many required fields, low value for an interactive Claude session
+- `company.create` (SS01) and `company.synchronize` (SS15) — many required fields, low value for an interactive MCP session
 
 The lower-level `SaldeoClient.post_command(..., extra_form={"attmnt_1": base64_blob})` already supports attachments, so adding these as tools is a follow-up rather than a redesign.
 
