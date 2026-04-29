@@ -190,6 +190,9 @@ class DocumentSyncInput(BaseModel):
     Reports the accounting-side number/status back to Saldeo for a document.
     Either ``saldeo_id`` or (``contractor_program_id`` + ``document_number`` +
     ``issue_date``) must identify the document.
+
+    ``saldeo_id`` is ``str`` (not ``int`` like ``document_id`` elsewhere)
+    because the document.sync XSD declares ``<SALDEO_ID>`` as ``xs:string``.
     """
 
     saldeo_id: str | None = None
