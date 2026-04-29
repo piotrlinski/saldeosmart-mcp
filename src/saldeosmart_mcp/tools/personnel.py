@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from xml.etree import ElementTree as ET
 
+from ..http.attachments import PreparedAttachment, prepare_attachments
 from ..http.xml import set_text
 from ..models import (
     Employee,
@@ -16,6 +17,7 @@ from ..models import (
     ErrorResponse,
     MergeResult,
     PersonnelDocument,
+    PersonnelDocumentAddInput,
     PersonnelDocumentList,
 )
 from ._runtime import get_client, mcp, parse_collection, saldeo_call, summarize_merge
@@ -141,6 +143,61 @@ def _build_employee_add_xml(employees: list[EmployeeAddInput]) -> str:
                 set_text(contract, "TYPE", c.type)
                 set_text(contract, "POSITION", c.position)
                 set_text(contract, "ENDATE", c.end_date)
+    return ET.tostring(root, encoding="unicode")
+
+
+@mcp.tool
+@saldeo_call
+def add_personnel_documents(
+    company_program_id: str,
+    documents: list[PersonnelDocumentAddInput],
+) -> MergeResult | ErrorResponse:
+    """Upload personnel (HR) documents with binary attachments (P04).
+
+    Each entry pairs a ``<PERSONNEL_DOCUMENT>`` row (year/month, type,
+    optional metadata) with one file from the local filesystem. Saldeo
+    accepts up to 50 entries per request.
+    """
+    if not documents:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one personnel document is required.",
+        )
+    prepared, form = prepare_attachments([d.attachment for d in documents])
+    xml = _build_personnel_document_add_xml(documents, prepared)
+    root = get_client().post_command(
+        "/api/xml/2.22/personnel_document/add",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+        extra_form=form,
+    )
+    return summarize_merge(root, total=len(documents))
+
+
+def _build_personnel_document_add_xml(
+    documents: list[PersonnelDocumentAddInput],
+    prepared: list[PreparedAttachment],
+) -> str:
+    # Element order matches personnel_document_add_request.xsd:
+    # EMPLOYEE_ID, YEAR, MONTH, ATTMNT, ATTMNT_NAME, DOCUMENT_TYPE,
+    # NUMBER, DOCUMENT_NAME, DESCRIPTION, DATE_OF_DUTY,
+    # MARK_WHEN_DATE_OF_DUTY_EXPIRED, NOTIFICATION_DATE.
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "PERSONNEL_DOCUMENTS")
+    for doc, att in zip(documents, prepared, strict=True):
+        item = ET.SubElement(container, "PERSONNEL_DOCUMENT")
+        set_text(item, "EMPLOYEE_ID", doc.employee_id)
+        set_text(item, "YEAR", doc.year)
+        set_text(item, "MONTH", doc.month)
+        set_text(item, "ATTMNT", att.key)
+        set_text(item, "ATTMNT_NAME", att.name)
+        set_text(item, "DOCUMENT_TYPE", doc.document_type)
+        set_text(item, "NUMBER", doc.number)
+        set_text(item, "DOCUMENT_NAME", doc.document_name)
+        set_text(item, "DESCRIPTION", doc.description)
+        set_text(item, "DATE_OF_DUTY", doc.date_of_duty)
+        set_text(item, "MARK_WHEN_DATE_OF_DUTY_EXPIRED", doc.mark_when_date_of_duty_expired)
+        set_text(item, "NOTIFICATION_DATE", doc.notification_date)
     return ET.tostring(root, encoding="unicode")
 
 

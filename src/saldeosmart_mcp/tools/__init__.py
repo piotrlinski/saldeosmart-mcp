@@ -51,6 +51,7 @@ from .companies import list_companies, synchronize_companies
 from .contractors import list_contractors, merge_contractors
 from .dimensions import merge_dimensions
 from .documents import (
+    add_documents,
     delete_documents,
     get_document_id_list,
     get_documents_by_id,
@@ -68,7 +69,12 @@ from .invoices import (
     get_invoices_by_id,
     list_invoices,
 )
-from .personnel import add_employees, list_employees, list_personnel_documents
+from .personnel import (
+    add_employees,
+    add_personnel_documents,
+    list_employees,
+    list_personnel_documents,
+)
 
 __all__ = [
     # Reads
@@ -86,7 +92,9 @@ __all__ = [
     "get_invoice_id_list",
     "get_invoices_by_id",
     # Writes
+    "add_documents",
     "add_employees",
+    "add_personnel_documents",
     "delete_documents",
     "merge_articles",
     "merge_categories",

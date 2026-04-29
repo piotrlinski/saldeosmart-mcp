@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from xml.etree import ElementTree as ET
 
+from ..http.attachments import PreparedAttachment, prepare_attachments
 from ..http.xml import set_text
 from ..models import (
     Document,
+    DocumentAddInput,
     DocumentDimensionInput,
     DocumentIdGroups,
     DocumentList,
@@ -226,6 +228,36 @@ def list_recognized_documents(
 
 
 # ---- Writes ----------------------------------------------------------------------
+
+
+@mcp.tool
+@saldeo_call
+def add_documents(
+    company_program_id: str,
+    documents: list[DocumentAddInput],
+) -> MergeResult | ErrorResponse:
+    """Upload cost documents (PDF, image, etc.) to a (year, month) folder (SS05).
+
+    Each entry pairs a folder with one local file. The file is read at
+    invocation time, base64-encoded, and uploaded as the matching
+    ``attmnt_N`` form field; ``<ATTMNT>`` in the XML carries the integer
+    reference, ``<ATTMNT_NAME>`` carries the display name (defaults to the
+    file's basename when not overridden in :class:`Attachment`).
+    """
+    if not documents:
+        return ErrorResponse(
+            error="EMPTY_INPUT",
+            message="At least one document is required.",
+        )
+    prepared, form = prepare_attachments([d.attachment for d in documents])
+    xml = _build_document_add_xml(documents, prepared)
+    root = get_client().post_command(
+        "/api/xml/1.0/document/add",
+        xml_command=xml,
+        query={"company_program_id": company_program_id},
+        extra_form=form,
+    )
+    return summarize_merge(root, total=len(documents))
 
 
 @mcp.tool
@@ -477,6 +509,25 @@ def _build_document_sync_xml(syncs: list[DocumentSyncInput]) -> str:
         set_text(item, "DOCUMENT_STATUS", s.document_status)
         set_text(item, "ISSUE_DATE", s.issue_date)
         set_text(item, "SALDEO_GUID", s.saldeo_guid)
+    return ET.tostring(root, encoding="unicode")
+
+
+def _build_document_add_xml(
+    documents: list[DocumentAddInput],
+    prepared: list[PreparedAttachment],
+) -> str:
+    # Element order matches document_add_request.xml:
+    # YEAR, MONTH, ATTMNT, ATTMNT_NAME (optional but always emitted —
+    # the helper resolves a name from the file basename when the caller
+    # didn't supply one).
+    root = ET.Element("ROOT")
+    container = ET.SubElement(root, "DOCUMENTS")
+    for doc, att in zip(documents, prepared, strict=True):
+        item = ET.SubElement(container, "DOCUMENT")
+        set_text(item, "YEAR", doc.year)
+        set_text(item, "MONTH", doc.month)
+        set_text(item, "ATTMNT", att.key)
+        set_text(item, "ATTMNT_NAME", att.name)
     return ET.tostring(root, encoding="unicode")
 
 

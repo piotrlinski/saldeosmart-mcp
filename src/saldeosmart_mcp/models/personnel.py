@@ -7,6 +7,7 @@ from xml.etree import ElementTree as ET
 
 from pydantic import BaseModel, Field
 
+from ..http.attachments import Attachment
 from ..http.xml import el_bool, el_int, el_text
 
 ContractType = Literal[
@@ -16,6 +17,16 @@ ContractType = Literal[
     "UMOWA_O_PRACE_TYMCZASOWA",
     "UMOWA_O_PRACE",
     "UMOWA_ZLECENIE",
+]
+
+PersonnelDocumentType = Literal[
+    "REMAINING",
+    "OTHER",
+    "PART_A",
+    "PART_B",
+    "PART_C",
+    "PART_D",
+    "PART_E",
 ]
 
 
@@ -133,3 +144,23 @@ class EmployeeAddInput(BaseModel):
     comments: str | None = None
     inactive: bool | None = None
     contracts: list[EmployeeContractInput] = Field(default_factory=list, max_length=6)
+
+
+class PersonnelDocumentAddInput(BaseModel):
+    """One ``<PERSONNEL_DOCUMENT>`` row for ``personnel_document.add`` (P04).
+
+    Required: ``year``, ``month``, ``document_type``, ``attachment``.
+    Saldeo accepts up to 50 personnel documents per request.
+    """
+
+    year: int
+    month: int
+    document_type: PersonnelDocumentType
+    attachment: Attachment
+    employee_id: int | None = None
+    number: int | None = None
+    document_name: str | None = None
+    description: str | None = None
+    date_of_duty: str | None = None  # ISO YYYY-MM-DD
+    mark_when_date_of_duty_expired: bool | None = None
+    notification_date: str | None = None  # ISO YYYY-MM-DD

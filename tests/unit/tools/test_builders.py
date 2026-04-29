@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from xml.etree import ElementTree as ET
 
+from saldeosmart_mcp.http.attachments import Attachment, PreparedAttachment
 from saldeosmart_mcp.models import (
     ArticleInput,
     BankAccountInput,
@@ -30,6 +31,7 @@ from saldeosmart_mcp.models import (
     DescriptionInput,
     DimensionInput,
     DimensionValueInput,
+    DocumentAddInput,
     DocumentDimensionInput,
     DocumentDimensionValueInput,
     DocumentSyncInput,
@@ -41,6 +43,7 @@ from saldeosmart_mcp.models import (
     FinancialBalanceVATInput,
     ForeignCodeInput,
     PaymentMethodInput,
+    PersonnelDocumentAddInput,
     RecognizeOptionInput,
     RegisterInput,
 )
@@ -57,6 +60,7 @@ from saldeosmart_mcp.tools.companies import _build_company_synchronize_xml
 from saldeosmart_mcp.tools.contractors import _build_contractor_merge_xml
 from saldeosmart_mcp.tools.dimensions import _build_dimension_merge_xml
 from saldeosmart_mcp.tools.documents import (
+    _build_document_add_xml,
     _build_document_delete_xml,
     _build_document_dimension_xml,
     _build_document_id_groups_xml,
@@ -68,7 +72,11 @@ from saldeosmart_mcp.tools.documents import (
 )
 from saldeosmart_mcp.tools.financial_balance import _build_financial_balance_merge_xml
 from saldeosmart_mcp.tools.invoices import _build_invoice_id_groups_xml
-from saldeosmart_mcp.tools.personnel import _build_employee_add_xml, _build_personnel_list_xml
+from saldeosmart_mcp.tools.personnel import (
+    _build_employee_add_xml,
+    _build_personnel_document_add_xml,
+    _build_personnel_list_xml,
+)
 
 # ---- _build_search_xml -----------------------------------------------------------
 
@@ -663,3 +671,82 @@ def test_financial_balance_merge_omits_optional_blocks() -> None:
     assert fb.find("VAT") is None
     assert fb.find("INCOME_MONTH") is None
     assert fb.find("COST_MONTH") is None
+
+
+# ---- _build_document_add_xml ----------------------------------------------------
+
+
+def test_document_add_emits_year_month_attmnt_in_order() -> None:
+    """document.add: <DOCUMENT> has YEAR, MONTH, ATTMNT, ATTMNT_NAME in that order."""
+    docs = [DocumentAddInput(year=2026, month=4, attachment=Attachment(path="/x/inv.pdf"))]
+    prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="inv.pdf")]
+    xml = _build_document_add_xml(docs, prepared)
+    el = ET.fromstring(xml).find("DOCUMENTS/DOCUMENT")
+    assert el is not None
+    assert [c.tag for c in el] == ["YEAR", "MONTH", "ATTMNT", "ATTMNT_NAME"]
+    assert el.findtext("ATTMNT") == "1"
+    assert el.findtext("ATTMNT_NAME") == "inv.pdf"
+
+
+# ---- _build_personnel_document_add_xml ------------------------------------------
+
+
+def test_personnel_document_add_keeps_xsd_element_order() -> None:
+    """XSD sequence: EMPLOYEE_ID, YEAR, MONTH, ATTMNT, ATTMNT_NAME, DOCUMENT_TYPE,
+    NUMBER, DOCUMENT_NAME, DESCRIPTION, DATE_OF_DUTY,
+    MARK_WHEN_DATE_OF_DUTY_EXPIRED, NOTIFICATION_DATE."""
+    docs = [
+        PersonnelDocumentAddInput(
+            employee_id=42,
+            year=2026,
+            month=4,
+            document_type="PART_A",
+            attachment=Attachment(path="/x/scan.pdf"),
+            number=7,
+            document_name="Contract A",
+            description="annex",
+            date_of_duty="2026-04-01",
+            mark_when_date_of_duty_expired=True,
+            notification_date="2026-03-25",
+        )
+    ]
+    prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="scan.pdf")]
+    xml = _build_personnel_document_add_xml(docs, prepared)
+    el = ET.fromstring(xml).find("PERSONNEL_DOCUMENTS/PERSONNEL_DOCUMENT")
+    assert el is not None
+    assert [c.tag for c in el] == [
+        "EMPLOYEE_ID",
+        "YEAR",
+        "MONTH",
+        "ATTMNT",
+        "ATTMNT_NAME",
+        "DOCUMENT_TYPE",
+        "NUMBER",
+        "DOCUMENT_NAME",
+        "DESCRIPTION",
+        "DATE_OF_DUTY",
+        "MARK_WHEN_DATE_OF_DUTY_EXPIRED",
+        "NOTIFICATION_DATE",
+    ]
+    assert el.findtext("ATTMNT") == "1"
+    assert el.findtext("ATTMNT_NAME") == "scan.pdf"
+    assert el.findtext("DOCUMENT_TYPE") == "PART_A"
+    assert el.findtext("MARK_WHEN_DATE_OF_DUTY_EXPIRED") == "true"
+
+
+def test_personnel_document_add_minimum_fields() -> None:
+    docs = [
+        PersonnelDocumentAddInput(
+            year=2026, month=4, document_type="OTHER",
+            attachment=Attachment(path="/x/file.pdf"),
+        )
+    ]
+    prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="file.pdf")]
+    el = ET.fromstring(_build_personnel_document_add_xml(docs, prepared)).find(
+        "PERSONNEL_DOCUMENTS/PERSONNEL_DOCUMENT"
+    )
+    assert el is not None
+    # Optional fields are omitted entirely.
+    assert el.find("EMPLOYEE_ID") is None
+    assert el.find("NUMBER") is None
+    assert el.find("DESCRIPTION") is None

@@ -10,6 +10,7 @@ so the ``saldeosmart_mcp.models`` namespace is the single public face.
 from __future__ import annotations
 
 from ..errors import ErrorResponse, ItemError, ItemErrorPayload, MergeResult
+from ..http.attachments import Attachment
 from .bank import BankOperation, BankStatement, BankStatementList
 from .catalog import (
     ArticleInput,
@@ -27,6 +28,7 @@ from .companies import Company, CompanyList, CompanySynchronizeInput
 from .contractors import Contractor, ContractorInput, ContractorList
 from .documents import (
     Document,
+    DocumentAddInput,
     DocumentDimensionInput,
     DocumentDimensionValueInput,
     DocumentIdGroups,
@@ -46,11 +48,14 @@ from .personnel import (
     EmployeeContractInput,
     EmployeeList,
     PersonnelDocument,
+    PersonnelDocumentAddInput,
     PersonnelDocumentList,
+    PersonnelDocumentType,
 )
 
 __all__ = [
     "ArticleInput",
+    "Attachment",
     "BankAccount",
     "BankAccountInput",
     "BankOperation",
@@ -68,6 +73,7 @@ __all__ = [
     "DimensionInput",
     "DimensionValueInput",
     "Document",
+    "DocumentAddInput",
     "DocumentDimensionInput",
     "DocumentDimensionValueInput",
     "DocumentIdGroups",
@@ -92,7 +98,9 @@ __all__ = [
     "MergeResult",
     "PaymentMethodInput",
     "PersonnelDocument",
+    "PersonnelDocumentAddInput",
     "PersonnelDocumentList",
+    "PersonnelDocumentType",
     "RecognizeOptionInput",
     "RegisterInput",
 ]

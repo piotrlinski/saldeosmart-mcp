@@ -30,13 +30,14 @@ from saldeosmart_mcp.tools.companies import synchronize_companies
 from saldeosmart_mcp.tools.contractors import merge_contractors
 from saldeosmart_mcp.tools.dimensions import merge_dimensions
 from saldeosmart_mcp.tools.documents import (
+    add_documents,
     delete_documents,
     merge_document_dimensions,
     recognize_documents,
     sync_documents,
     update_documents,
 )
-from saldeosmart_mcp.tools.personnel import add_employees
+from saldeosmart_mcp.tools.personnel import add_employees, add_personnel_documents
 
 
 @pytest.mark.parametrize(
@@ -57,6 +58,8 @@ from saldeosmart_mcp.tools.personnel import add_employees
         (merge_dimensions, "dimensions", {}, True),
         (synchronize_companies, "companies", {}, False),
         (add_employees, "employees", {}, True),
+        (add_documents, "documents", {}, True),
+        (add_personnel_documents, "documents", {}, True),
     ],
 )
 def test_empty_list_returns_empty_input_error(

@@ -14,6 +14,7 @@ from xml.etree import ElementTree as ET
 
 from pydantic import BaseModel, Field
 
+from ..http.attachments import Attachment
 from ..http.xml import el_bool, el_int, el_text
 from .contractors import Contractor
 
@@ -165,6 +166,19 @@ class DocumentIdGroups(BaseModel):
 
 
 # ---- Write inputs ----------------------------------------------------------------
+
+
+class DocumentAddInput(BaseModel):
+    """One ``<DOCUMENT>`` row for ``document.add`` (SS05).
+
+    Pairs a (year, month) folder with a single binary attachment. The
+    attachment is read from disk at tool invocation time; the resolved
+    display name is sent as ``<ATTMNT_NAME>``.
+    """
+
+    year: int
+    month: int
+    attachment: Attachment
 
 
 class DocumentUpdateInput(BaseModel):
