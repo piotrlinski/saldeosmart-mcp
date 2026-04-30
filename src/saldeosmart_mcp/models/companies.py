@@ -7,6 +7,7 @@ from xml.etree import ElementTree as ET
 from pydantic import BaseModel, Field
 
 from ..http.xml import el_int, el_text
+from .common import VatNumber
 
 
 class Company(BaseModel):
@@ -89,7 +90,7 @@ class CompanyCreateInput(BaseModel):
     email: str
     short_name: str
     full_name: str
-    vat_number: str
+    vat_number: VatNumber
     city: str
     postcode: str
     street: str

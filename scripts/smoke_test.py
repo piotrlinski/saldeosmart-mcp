@@ -98,8 +98,7 @@ def main() -> int:
     program_id: str | None = None
     if isinstance(companies, CompanyList) and companies.companies:
         program_id = companies.companies[0].program_id
-        print(f"     using company_program_id={program_id!r} "
-              f"(of {companies.count} total)")
+        print(f"     using company_program_id={program_id!r} (of {companies.count} total)")
 
     if not program_id:
         print("\n!! no usable company_program_id — cannot exercise the rest.")
@@ -112,9 +111,7 @@ def main() -> int:
     docs_by_policy: dict[str, DocumentList | None] = {}
     for policy in ("LAST_10_DAYS", "LAST_10_DAYS_OCRED", "SALDEO"):
         result = list_documents(program_id, policy=policy)  # type: ignore[arg-type]
-        docs_by_policy[policy] = (
-            result if isinstance(result, DocumentList) else None
-        )
+        docs_by_policy[policy] = result if isinstance(result, DocumentList) else None
         report(f"list_documents[{policy}]", result)
 
     print("\n[4] search_documents")
@@ -150,6 +147,7 @@ def main() -> int:
 
     print("\n[8] 3.0 paginated id-list / listbyid")
     from datetime import date as _date
+
     today = _date.today()
     doc_groups_result = get_document_id_list(program_id, year=today.year, month=today.month)
     doc_groups = report(

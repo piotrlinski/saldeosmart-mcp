@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..http.attachments import Attachment
 from ..http.xml import el_bool, el_int, el_text
-from .common import IsoDate
+from .common import IsoDate, Month, Nip, Pesel, Year
 
 ContractType = Literal[
     "KONTRAKT_MENADZERSKI",
@@ -131,8 +131,8 @@ class EmployeeAddInput(BaseModel):
     last_name: str | None = None
     parents_names: str | None = None
     birth_date: IsoDate | None = None
-    pesel: str | None = None
-    nip: str | None = None
+    pesel: Pesel | None = None
+    nip: Nip | None = None
     id_card_number: str | None = None
     bank_account_number: str | None = None
     email: str | None = None
@@ -154,8 +154,8 @@ class PersonnelDocumentAddInput(BaseModel):
     Saldeo accepts up to 50 personnel documents per request.
     """
 
-    year: int
-    month: int
+    year: Year
+    month: Month
     document_type: PersonnelDocumentType
     attachment: Attachment
     employee_id: int | None = None

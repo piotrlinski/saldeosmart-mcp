@@ -5,6 +5,31 @@ models, the input models, and any helpers exclusive to that family.
 The cross-cutting error models (``ItemError`` / ``ErrorResponse`` /
 ``MergeResult``) live in ``saldeosmart_mcp.errors`` and are re-exported here
 so the ``saldeosmart_mcp.models`` namespace is the single public face.
+
+``__all__`` is alphabetised (enforced by ruff RUF022). To find what you
+want, look up the type by category:
+
+* **Read responses** — typed shapes returned by ``list_*`` / ``get_*``
+  / ``search_*`` tools. Examples: ``Company``, ``Contractor``,
+  ``Document``, ``DocumentList``, ``DocumentIdGroups``,
+  ``BankStatement``, ``Employee``, ``DocumentAddRecognizeResult``.
+* **Write inputs** — Pydantic inputs accepted by write tools, suffixed
+  ``Input``. Examples: ``CategoryInput``, ``ContractorInput``,
+  ``DocumentAddInput``, ``DocumentImportInput``,
+  ``EmployeeAddInput``, ``DeclarationMergeInput``.
+* **Common building blocks** (``saldeosmart_mcp.models.common``) —
+  ``BankAccount``, ``BankAccountInput``, plus validated string
+  aliases ``IsoDate``, ``Nip``, ``Pesel``, ``VatNumber``, ``Year``,
+  ``Month``.
+* **Closed enums** (Literal type aliases) — ``ContractType``,
+  ``ContractorAreaType``, ``DiscountType``, ``DocumentModelType``,
+  ``DocumentPolicy``, ``PeriodType``, ``PersonIdType``,
+  ``PersonnelDocumentType``, ``SplitMode``, ``VehicleType``,
+  ``CloseAttachmentType``.
+* **Errors** (re-exported from ``saldeosmart_mcp.errors``) —
+  ``ErrorResponse``, ``ItemError``, ``MergeResult``.
+* **Attachment** (``saldeosmart_mcp.http.attachments``) —
+  ``Attachment``, used as a field on every input that uploads a file.
 """
 
 from __future__ import annotations
@@ -39,7 +64,7 @@ from .catalog import (
     PaymentMethodInput,
     RegisterInput,
 )
-from .common import BankAccount, BankAccountInput
+from .common import BankAccount, BankAccountInput, IsoDate, Month, Nip, Pesel, VatNumber, Year
 from .companies import (
     Company,
     CompanyCreateBankAccountInput,
@@ -129,8 +154,8 @@ __all__ = [
     "CompanyCreateInput",
     "CompanyList",
     "CompanySynchronizeInput",
-    "Contractor",
     "ContractType",
+    "Contractor",
     "ContractorAreaType",
     "ContractorInput",
     "ContractorList",
@@ -185,8 +210,11 @@ __all__ = [
     "InvoiceAddSaleDateRangeInput",
     "InvoiceIdGroups",
     "InvoiceList",
+    "IsoDate",
     "ItemError",
     "MergeResult",
+    "Month",
+    "Nip",
     "PaymentMethodInput",
     "PeriodType",
     "PersonIdType",
@@ -194,9 +222,12 @@ __all__ = [
     "PersonnelDocumentAddInput",
     "PersonnelDocumentList",
     "PersonnelDocumentType",
+    "Pesel",
     "RecognizeOptionInput",
     "RegisterInput",
     "SplitMode",
     "TaxDetailsInput",
+    "VatNumber",
     "VehicleType",
+    "Year",
 ]

@@ -18,12 +18,14 @@ from ..models import (
     ErrorResponse,
     MergeResult,
 )
+from . import endpoints
 from ._builders import append_close_attachments
-from ._runtime import get_client, mcp, saldeo_call, summarize_merge
+from ._runtime import mcp, merge_call, require_nonempty, saldeo_call
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("declarations.taxes", message="At least one tax declaration is required.")
 def merge_declarations(
     company_program_id: str,
     declarations: DeclarationMergeInput,
@@ -35,27 +37,23 @@ def merge_declarations(
     (declaration PDF, supporting reports). Saldeo answers per-item with
     ``MERGED`` (existed) or ``CREATED`` (new).
     """
-    if not declarations.taxes:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one tax declaration is required.",
-        )
     all_attachments: list[Attachment] = []
     for tax in declarations.taxes:
         all_attachments.extend(a.attachment for a in tax.attachments)
     prepared, form = prepare_attachments(all_attachments)
     xml = _build_declaration_merge_xml(declarations, prepared)
-    root = get_client().post_command(
-        "/api/xml/1.0/declaration/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.DECLARATION_MERGE,
+        xml,
+        total=len(declarations.taxes),
         query={"company_program_id": company_program_id},
         extra_form=form,
     )
-    return summarize_merge(root, total=len(declarations.taxes))
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("assurances.assurances", message="At least one assurance entry is required.")
 def renew_assurances(
     company_program_id: str,
     assurances: AssuranceRenewInput,
@@ -67,23 +65,18 @@ def renew_assurances(
     (EMPLOYEES, PERSONAL, COMPANY, PARTNER). Saldeo answers per-item with
     ``RENEWED`` (existed) or ``CREATED`` (new).
     """
-    if not assurances.assurances:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one assurance entry is required.",
-        )
     all_attachments: list[Attachment] = []
     for item in assurances.assurances:
         all_attachments.extend(a.attachment for a in item.attachments)
     prepared, form = prepare_attachments(all_attachments)
     xml = _build_assurance_renew_xml(assurances, prepared)
-    root = get_client().post_command(
-        "/api/xml/1.0/assurance/renew",
-        xml_command=xml,
+    return merge_call(
+        endpoints.ASSURANCE_RENEW,
+        xml,
+        total=len(assurances.assurances),
         query={"company_program_id": company_program_id},
         extra_form=form,
     )
-    return summarize_merge(root, total=len(assurances.assurances))
 
 
 # ---- Builders --------------------------------------------------------------------

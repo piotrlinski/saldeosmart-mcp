@@ -17,15 +17,19 @@ from ..models import (
     ErrorResponse,
     FeeInput,
     MergeResult,
+    Month,
     PaymentMethodInput,
     RegisterInput,
+    Year,
 )
+from . import endpoints
 from ._builders import build_simple_merge_xml
-from ._runtime import get_client, mcp, saldeo_call, summarize_merge
+from ._runtime import mcp, merge_call, require_nonempty, saldeo_call
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("categories", message="At least one category is required.")
 def merge_categories(
     company_program_id: str,
     categories: list[CategoryInput],
@@ -45,11 +49,6 @@ def merge_categories(
         MergeResult — total + per-item successes/errors. On envelope-level
         failure, ErrorResponse (see docs/ERROR_CODES.md).
     """
-    if not categories:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one category is required.",
-        )
     xml = build_simple_merge_xml(
         container_tag="CATEGORIES",
         item_tag="CATEGORY",
@@ -60,16 +59,17 @@ def merge_categories(
             ("description", "DESCRIPTION"),
         ],
     )
-    root = get_client().post_command(
-        "/api/xml/1.0/category/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.CATEGORY_MERGE,
+        xml,
+        total=len(categories),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(categories))
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("payment_methods", message="At least one payment method is required.")
 def merge_payment_methods(
     company_program_id: str,
     payment_methods: list[PaymentMethodInput],
@@ -87,11 +87,6 @@ def merge_payment_methods(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
-    if not payment_methods:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one payment method is required.",
-        )
     xml = build_simple_merge_xml(
         container_tag="PAYMENT_METHODS",
         item_tag="PAYMENT_METHOD",
@@ -102,16 +97,17 @@ def merge_payment_methods(
             ("name", "NAME"),
         ],
     )
-    root = get_client().post_command(
-        "/api/xml/1.0/payment_method/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.PAYMENT_METHOD_MERGE,
+        xml,
+        total=len(payment_methods),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(payment_methods))
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("registers", message="At least one register is required.")
 def merge_registers(
     company_program_id: str,
     registers: list[RegisterInput],
@@ -129,11 +125,6 @@ def merge_registers(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
-    if not registers:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one register is required.",
-        )
     xml = build_simple_merge_xml(
         container_tag="REGISTERS",
         item_tag="REGISTER",
@@ -144,16 +135,17 @@ def merge_registers(
             ("name", "NAME"),
         ],
     )
-    root = get_client().post_command(
-        "/api/xml/1.0/register/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.REGISTER_MERGE,
+        xml,
+        total=len(registers),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(registers))
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("descriptions", message="At least one description is required.")
 def merge_descriptions(
     company_program_id: str,
     descriptions: list[DescriptionInput],
@@ -170,11 +162,6 @@ def merge_descriptions(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
-    if not descriptions:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one description is required.",
-        )
     xml = build_simple_merge_xml(
         container_tag="DESCRIPTIONS",
         item_tag="DESCRIPTION",
@@ -184,16 +171,17 @@ def merge_descriptions(
             ("value", "VALUE"),
         ],
     )
-    root = get_client().post_command(
-        "/api/xml/1.13/description/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.DESCRIPTION_MERGE,
+        xml,
+        total=len(descriptions),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(descriptions))
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("articles", message="At least one article is required.")
 def merge_articles(
     company_program_id: str,
     articles: list[ArticleInput],
@@ -213,26 +201,22 @@ def merge_articles(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
-    if not articles:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one article is required.",
-        )
     xml = _build_article_merge_xml(articles)
-    root = get_client().post_command(
-        "/api/xml/1.14/article/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.ARTICLE_MERGE,
+        xml,
+        total=len(articles),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(articles))
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("fees", message="At least one fee is required.")
 def merge_fees(
     company_program_id: str,
-    year: int,
-    month: int,
+    year: Year,
+    month: Month,
     fees: list[FeeInput],
 ) -> MergeResult | ErrorResponse:
     """Create or update the accounting-firm fee schedule for one month.
@@ -252,18 +236,13 @@ def merge_fees(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
-    if not fees:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one fee is required.",
-        )
     xml = _build_fee_merge_xml(year=year, month=month, fees=fees)
-    root = get_client().post_command(
-        "/api/xml/1.13/fee/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.FEE_MERGE,
+        xml,
+        total=len(fees),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(fees))
 
 
 # ---- Builders --------------------------------------------------------------------

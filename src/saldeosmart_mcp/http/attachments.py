@@ -75,8 +75,6 @@ def prepare_attachments(
         form_key = f"attmnt_{key}"
         path = Path(att.path)
         data = base64.b64encode(path.read_bytes()).decode("ascii")
-        prepared.append(
-            PreparedAttachment(key=key, form_key=form_key, name=att.name or path.name)
-        )
+        prepared.append(PreparedAttachment(key=key, form_key=form_key, name=att.name or path.name))
         form[form_key] = data
     return prepared, form

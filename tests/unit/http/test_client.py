@@ -39,9 +39,7 @@ def test_signature_matches_spec_example() -> None:
 
     # Sorted alphabetically: req_id < username
     expected_base = "req_id=20140301123056username=demo"
-    expected = hashlib.md5(
-        (saldeo_url_encode(expected_base) + api_token).encode()
-    ).hexdigest()
+    expected = hashlib.md5((saldeo_url_encode(expected_base) + api_token).encode()).hexdigest()
 
     assert RequestSigner.sign(params, api_token) == expected
 
@@ -54,7 +52,7 @@ def test_signature_sorts_keys_alphabetically() -> None:
 
 
 def test_signature_rejects_empty_values() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="empty"):
         RequestSigner.sign({"username": "u", "req_id": ""}, "tok")
 
 
@@ -86,8 +84,7 @@ def _client() -> SaldeoClient:
 
 
 def _resp(text: str, status: int = 200) -> httpx.Response:
-    return httpx.Response(status_code=status, text=text,
-                          request=httpx.Request("GET", "http://x"))
+    return httpx.Response(status_code=status, text=text, request=httpx.Request("GET", "http://x"))
 
 
 def test_parses_top_level_error_envelope() -> None:
@@ -292,7 +289,7 @@ def test_secret_str_protects_token_from_repr() -> None:
 
 
 @pytest.mark.parametrize(
-    "raw,expected",
+    ("raw", "expected"),
     [
         ("true", True),
         ("True", True),

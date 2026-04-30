@@ -132,7 +132,8 @@ make help           # list all targets
 make run            # start the server in a container (requires SALDEO_USERNAME / SALDEO_API_TOKEN in env)
 make inspector      # MCP Inspector against the image
 make test           # pytest locally (requires uv)
-make lint           # ruff + mypy locally (requires uv)
+make lint           # ruff check + ruff format --check + mypy locally (requires uv)
+make format         # ruff format + ruff check --fix (apply fixes)
 make sync           # uv sync --extra dev — install dev dependencies
 make clean          # docker image rm saldeosmart-mcp:latest
 ```
@@ -312,8 +313,12 @@ make inspector
 ```bash
 make sync           # one-off, to set up .venv with dev deps
 make test           # pytest
-make lint           # ruff + mypy
+make lint           # ruff check + ruff format --check + mypy
+make format         # ruff format + ruff check --fix
 ```
+
+A `.pre-commit-config.yaml` is wired up — `pre-commit install` once and the
+same ruff + mypy checks run on every `git commit`.
 
 Coverage focuses on the trickiest parts — the MD5 signing algorithm, the XML→gzip→base64 encoding, the error envelope parser (top-level + per-item), URL redaction, request-lock concurrency, and the request-XML builder for every write endpoint. The smoke test (`scripts/smoke_test.py`) hits every read endpoint against a real account.
 
@@ -329,11 +334,15 @@ tests/
     ├── test_errors.py                # SaldeoError → MCP payload shape
     ├── test_logging.py               # setup_logging env-var handling, rotation
     ├── http/
-    │   └── test_client.py            # signing, gzip+base64, error-envelope parser
+    │   ├── test_client.py            # signing, gzip+base64, error-envelope parser
+    │   └── test_attachments.py       # Attachment → base64 + form-field plumbing
     ├── models/
-    │   └── test_documents.py         # XML → Pydantic for documents/invoices
+    │   ├── test_documents.py         # XML → Pydantic for documents/invoices
+    │   ├── test_validators.py        # IsoDate, Nip, Pesel, VatNumber, Year, Month
+    │   └── test_serialization.py     # JSON round-trip + Pydantic field constraints
     └── tools/
-        └── test_builders.py          # every request-XML builder + summarize_merge
+        ├── test_builders.py          # every request-XML builder + summarize_merge
+        └── test_empty_input_guard.py # @require_nonempty contract for every write tool
 ```
 
 Test files mirror the source layout, so the home for a new test is wherever the production code it covers lives. Adding a tool? See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full step-by-step.
@@ -369,7 +378,9 @@ src/saldeosmart_mcp/
 │   └── attachments.py # Attachment + prepare_attachments — file → base64 + form
 │
 ├── models/                  # everything that crosses the MCP boundary as JSON
-│   ├── common.py             # cross-resource (BankAccount, BankAccountInput)
+│   ├── common.py             # cross-resource: BankAccount(+Input), validated
+│   │                         # string aliases IsoDate / Nip / Pesel / VatNumber,
+│   │                         # range-bounded Year / Month
 │   ├── companies.py          # Company, CompanySynchronizeInput, CompanyCreateInput
 │   ├── contractors.py        # Contractor(+List), ContractorInput
 │   ├── documents.py          # Document, DocumentAddInput, DocumentImportInput,
@@ -385,9 +396,14 @@ src/saldeosmart_mcp/
 │   └── catalog.py            # CategoryInput, RegisterInput, ArticleInput, FeeInput, …
 │
 ├── tools/                   # @mcp.tool registry — one file per Saldeo resource
-│   ├── _runtime.py           # mcp = FastMCP(...), saldeo_call, get_client,
-│   │                         # summarize_merge, parse_collection
+│   ├── _runtime.py           # mcp = FastMCP(...), saldeo_call, require_nonempty,
+│   │                         # merge_call, get_client, summarize_merge,
+│   │                         # parse_collection
 │   ├── _builders.py          # generic XML builders + append_close_attachments
+│   ├── _documents_builders.py # the document-tool XML builders (kept out of
+│   │                          # documents.py so that file is just registrations)
+│   ├── endpoints.py          # one Final[str] constant per /api/xml/... path —
+│   │                         # the only place that knows API version numbers
 │   ├── companies.py          # list_/synchronize_/create_companies
 │   ├── contractors.py        # list_/merge_contractors
 │   ├── documents.py          # list_/search_/add_/update_/delete_/recognize_/sync_/
@@ -413,6 +429,8 @@ Highlights:
 - **`threading.Lock`** in `SaldeoClient` serializes calls because Saldeo's spec forbids concurrent requests per user; FastMCP's thread executor would otherwise issue them in parallel.
 - **`SecretStr`** for the API token (never leaks via `repr()`/logs); URL redaction wipes `req_sig` and `api_token` from every logged URL.
 - **Per-item error walker** (`iter_item_errors` in `errors.py`) — Saldeo answers `STATUS=OK` at the envelope level even when individual batch items fail, so write tools call this and report partial successes via `MergeResult`.
+- **Two-decorator boundary on write tools** — `@saldeo_call` maps `SaldeoError` / `FileNotFoundError` / `PermissionError` / `ValueError` to `ErrorResponse`; `@require_nonempty(field, message=...)` short-circuits empty-list batches before the network call. Stack `@require_nonempty` *under* `@saldeo_call`. The `merge_call(endpoint, xml, *, total, query, extra_form)` helper wraps the universal `post_command(...) → summarize_merge(...)` pair.
+- **Validation at the MCP boundary** — write inputs are typed with `Annotated` aliases from `models/common.py` (`IsoDate`, `Nip`, `Pesel`, `VatNumber`, `Year`, `Month`); typos fail Pydantic validation client-side instead of returning an opaque Saldeo error code.
 
 ## API limits (heads-up)
 

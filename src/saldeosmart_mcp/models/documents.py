@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from ..http.attachments import Attachment
 from ..http.xml import el_bool, el_int, el_text, parse_int_list
-from .common import IsoDate
+from .common import IsoDate, Month, VatNumber, Year
 from .contractors import Contractor
 
 DocumentPolicy = Literal["LAST_10_DAYS", "LAST_10_DAYS_OCRED", "SALDEO"]
@@ -167,8 +167,8 @@ class DocumentAddInput(BaseModel):
     display name is sent as ``<ATTMNT_NAME>``.
     """
 
-    year: int
-    month: int
+    year: Year
+    month: Month
     attachment: Attachment
 
 
@@ -189,7 +189,7 @@ class DocumentAddRecognizeInput(BaseModel):
     """
 
     attachment: Attachment
-    vat_number: str
+    vat_number: VatNumber
     split_mode: SplitMode = "NO_SPLIT"
     document_type: Literal["COST", "SALE"] | None = None
     no_rotate: bool | None = None
@@ -241,7 +241,7 @@ class DocumentCorrectContractorInput(BaseModel):
 
     short_name: str
     full_name: str
-    vat_number: str
+    vat_number: VatNumber
     street: str
     city: str
     postcode: str
@@ -417,8 +417,8 @@ class DocumentImportInput(BaseModel):
     flavor (VAT-bearing invoices vs accounts / no-VAT documents).
     """
 
-    year: int
-    month: int
+    year: Year
+    month: Month
     document_type: DocumentImportTypeInput
     attachment: Attachment
     archival_number: str | None = None
@@ -447,9 +447,7 @@ class DocumentImportInput(BaseModel):
     no_vat_document: DocumentImportNoVATInput | None = None
     document_items: list[DocumentImportLineItemInput] = Field(default_factory=list)
     payments: list[DocumentImportPaymentInput] = Field(default_factory=list)
-    attachments: list[DocumentImportAttachmentInput] = Field(
-        default_factory=list, max_length=5
-    )
+    attachments: list[DocumentImportAttachmentInput] = Field(default_factory=list, max_length=5)
 
 
 class DocumentUpdateInput(BaseModel):

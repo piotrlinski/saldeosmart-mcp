@@ -12,8 +12,8 @@ empty strings (an empty element would tell Saldeo "clear this field").
 
 from __future__ import annotations
 
-import re
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from xml.etree import ElementTree as ET
 
 # ---- Read helpers ----------------------------------------------------------------
@@ -104,7 +104,7 @@ def redact_params(params: dict[str, Any]) -> dict[str, Any]:
     return {k: ("***" if k == "req_sig" else v) for k, v in params.items()}
 
 
-_URL_REDACT_RE = re.compile(r"(req_sig|api_token)=[^&\s]+", re.IGNORECASE)
+_REDACTED_QUERY_KEYS = frozenset({"req_sig", "api_token"})
 
 
 def redact_url(url: str) -> str:
@@ -114,4 +114,13 @@ def redact_url(url: str) -> str:
     grepping and makes log files awkward to share. `api_token` should
     never appear in a URL, but redact defensively.
     """
-    return _URL_REDACT_RE.sub(r"\1=***", url)
+    parts = urlsplit(url)
+    if not parts.query:
+        return url
+    redacted = [
+        (k, "***" if k.lower() in _REDACTED_QUERY_KEYS else v)
+        for k, v in parse_qsl(parts.query, keep_blank_values=True)
+    ]
+    # safe="*" keeps the redaction marker readable in logs (otherwise urlencode
+    # percent-encodes the asterisks).
+    return urlunsplit(parts._replace(query=urlencode(redacted, safe="*")))

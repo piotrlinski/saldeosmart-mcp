@@ -51,7 +51,7 @@ from saldeosmart_mcp.tools.personnel import add_employees, add_personnel_documen
 
 
 @pytest.mark.parametrize(
-    "tool,list_kwarg,extra_kwargs,needs_company_program_id",
+    ("tool", "list_kwarg", "extra_kwargs", "needs_company_program_id"),
     [
         (update_documents, "documents", {}, True),
         (delete_documents, "document_ids", {}, True),

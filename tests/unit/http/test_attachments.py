@@ -30,9 +30,7 @@ def test_prepare_attachments_indexes_keys_one_based(tmp_path: Path) -> None:
     b = tmp_path / "b.txt"
     b.write_bytes(b"b")
 
-    prepared, form = prepare_attachments(
-        [Attachment(path=str(a)), Attachment(path=str(b))]
-    )
+    prepared, form = prepare_attachments([Attachment(path=str(a)), Attachment(path=str(b))])
 
     assert [p.key for p in prepared] == ["1", "2"]
     assert set(form.keys()) == {"attmnt_1", "attmnt_2"}
@@ -42,9 +40,7 @@ def test_prepare_attachments_uses_explicit_name_override(tmp_path: Path) -> None
     f = tmp_path / "scan-001.pdf"
     f.write_bytes(b"x")
 
-    prepared, _ = prepare_attachments(
-        [Attachment(path=str(f), name="invoice-jan-2026.pdf")]
-    )
+    prepared, _ = prepare_attachments([Attachment(path=str(f), name="invoice-jan-2026.pdf")])
     assert prepared[0].name == "invoice-jan-2026.pdf"
 
 

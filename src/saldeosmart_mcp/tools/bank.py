@@ -9,6 +9,7 @@ The Bank Statement module is a separate Saldeo entitlement; calls return
 from __future__ import annotations
 
 from ..models import BankStatement, BankStatementList, ErrorResponse
+from . import endpoints
 from ._runtime import get_client, mcp, parse_collection, saldeo_call
 
 
@@ -29,10 +30,8 @@ def list_bank_statements(company_program_id: str) -> BankStatementList | ErrorRe
         client if you need everything.
     """
     root = get_client().get(
-        "/api/xml/2.18/bank_statement/list",
+        endpoints.BANK_STATEMENT_LIST,
         query={"company_program_id": company_program_id},
     )
-    statements = parse_collection(
-        root, "BANK_STATEMENTS", "BANK_STATEMENT", BankStatement.from_xml
-    )
+    statements = parse_collection(root, "BANK_STATEMENTS", "BANK_STATEMENT", BankStatement.from_xml)
     return BankStatementList(statements=statements, count=len(statements))

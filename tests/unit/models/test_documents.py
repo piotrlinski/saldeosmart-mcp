@@ -228,12 +228,7 @@ def test_contractor_reads_street_and_postcode_not_address() -> None:
 
 def test_contractor_legacy_address_postal_code_still_parsed() -> None:
     """If Saldeo ever ships the alternative spellings, fall back to them."""
-    xml = (
-        "<CONTRACTOR>"
-        "<ADDRESS>ul. Stara 5</ADDRESS>"
-        "<POSTAL_CODE>00-001</POSTAL_CODE>"
-        "</CONTRACTOR>"
-    )
+    xml = "<CONTRACTOR><ADDRESS>ul. Stara 5</ADDRESS><POSTAL_CODE>00-001</POSTAL_CODE></CONTRACTOR>"
     c = Contractor.from_xml(ET.fromstring(xml))
     assert c.address == "ul. Stara 5"
     assert c.postal_code == "00-001"
@@ -241,12 +236,7 @@ def test_contractor_legacy_address_postal_code_still_parsed() -> None:
 
 def test_contractor_embedded_in_document_uses_nip_for_vat_number() -> None:
     """In <DOCUMENT><CONTRACTOR> the VAT number is sent as <NIP>, not <VAT_NUMBER>."""
-    xml = (
-        "<CONTRACTOR>"
-        "<CONTRACTOR_ID>5</CONTRACTOR_ID>"
-        "<NIP>5242910139</NIP>"
-        "</CONTRACTOR>"
-    )
+    xml = "<CONTRACTOR><CONTRACTOR_ID>5</CONTRACTOR_ID><NIP>5242910139</NIP></CONTRACTOR>"
     c = Contractor.from_xml(ET.fromstring(xml))
     assert c.vat_number == "5242910139"
     assert c.contractor_id == 5

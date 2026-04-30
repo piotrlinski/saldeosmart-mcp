@@ -9,7 +9,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- (nothing yet)
+- `tools/endpoints.py` — central registry of every `/api/xml/...` path. The
+  only place that knows API version numbers; the architecture test rejects
+  bare endpoint strings in the rest of `tools/`.
+- `@require_nonempty(field, message=...)` decorator in `tools/_runtime.py`,
+  with dotted-path support for nested-list inputs (e.g.
+  `"declarations.taxes"`). Replaces 22 hand-written `EMPTY_INPUT` guards.
+- `merge_call(endpoint, xml, *, total, query, extra_form)` helper in
+  `tools/_runtime.py`. Replaces ~20 hand-written
+  `post_command(...) → summarize_merge(...)` pairs.
+- `tools/_documents_builders.py` — XML request builders for the document
+  tools, split out so `tools/documents.py` is registrations only.
+- Validated string aliases in `models/common.py`: `Nip`, `Pesel`,
+  `VatNumber`, `Year` (2000-2099), `Month` (1-12). Applied to write inputs
+  and to bare tool params (`get_document_id_list`, `get_invoice_id_list`,
+  `merge_fees`, `list_personnel_documents`).
+- Error-code constants in `errors.py`: `ERROR_EMPTY_INPUT`,
+  `ERROR_INVALID_INPUT`, `ERROR_MISSING_CRITERIA`,
+  `ERROR_TOO_MANY_DOCUMENTS`, `ERROR_ATTACHMENT_NOT_FOUND`,
+  `ERROR_ATTACHMENT_PERMISSION_DENIED`.
+- `_CloseAttachmentLike` Protocol in `tools/_builders.py` replaces the
+  former `Sequence[Any]` duck typing on `append_close_attachments`.
+- `tests/unit/models/test_validators.py` — 35 cases covering `IsoDate`,
+  `Nip`, `Pesel`, `VatNumber`, `Year`, `Month`.
+- `tests/unit/models/test_serialization.py` — JSON round-trip tests for
+  `DocumentList` / `ErrorResponse` / `MergeResult`, plus enforcement of
+  `DocumentImportInput.attachments`'s `max_length=5`.
+- `make format` Makefile target (apply ruff format + ruff --fix).
+- `.pre-commit-config.yaml` running ruff, ruff-format, and mypy on commit.
+
+### Changed
+
+- `tools/documents.py`: 855 → 468 LOC after extracting builders into
+  `tools/_documents_builders.py`. No public-API change.
+- `tools/_runtime.py`'s `saldeo_call` now also maps `ValueError` raised in
+  builders (e.g. attachment-count mismatch in `document.import`) to a
+  structured `ErrorResponse(error="INVALID_INPUT", ...)` instead of letting
+  the stack trace escape.
+- `logging.setup_logging` drops *any* prior `TimedRotatingFileHandler`
+  instance on re-entry instead of relying on exact-path equality, so
+  `SALDEO_LOG_DIR` changes between calls no longer leak handlers.
+- `http.xml.redact_url` uses `urllib.parse.urlsplit` /
+  `parse_qsl` / `urlunsplit` instead of a regex.
+- `make lint` now also runs `ruff format --check`. `pyproject.toml` ruff
+  rules expanded with `RUF`, `PERF`, `PT` (with `RUF002` / `RUF003`
+  ignored for Polish-language docstrings).
+
+### Fixed
+
+- `_build_document_import_xml` raised `AssertionError` on attachment-count
+  mismatch — `assert` is the wrong contract for input validation. Switched
+  to `ValueError`, picked up by `saldeo_call` as `INVALID_INPUT`.
+
+### Added (write tools)
+
+- `synchronize_companies`, `create_companies`, `merge_financial_balance`,
+  `merge_declarations`, `renew_assurances`, `add_documents`,
+  `add_recognize_document`, `correct_documents`, `import_documents`,
+  `add_invoice`, `add_employees`, `add_personnel_documents`.
+
+### Removed
+
+- `saldeo_url_encode` from the `saldeosmart_mcp.http` re-exports
+  (still importable from `saldeosmart_mcp.http.signing` for tests).
 
 ## [0.1.0] - 2026-04-29
 
