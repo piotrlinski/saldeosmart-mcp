@@ -12,6 +12,8 @@ from ..models import (
     InvoiceIdGroups,
     InvoiceList,
     MergeResult,
+    Month,
+    Year,
 )
 from . import endpoints
 from ._builders import build_folder_xml
@@ -40,8 +42,8 @@ def list_invoices(company_program_id: str) -> InvoiceList | ErrorResponse:
 @saldeo_call
 def get_invoice_id_list(
     company_program_id: str,
-    year: int,
-    month: int,
+    year: Year,
+    month: Month,
 ) -> InvoiceIdGroups | ErrorResponse:
     """List invoice IDs in one folder, grouped by kind (SSK07).
 

@@ -16,9 +16,11 @@ from ..models import (
     EmployeeList,
     ErrorResponse,
     MergeResult,
+    Month,
     PersonnelDocument,
     PersonnelDocumentAddInput,
     PersonnelDocumentList,
+    Year,
 )
 from . import endpoints
 from ._runtime import get_client, mcp, merge_call, parse_collection, require_nonempty, saldeo_call
@@ -46,8 +48,8 @@ def list_employees(company_program_id: str) -> EmployeeList | ErrorResponse:
 def list_personnel_documents(
     company_program_id: str,
     employee_id: int | None = None,
-    year: int | None = None,
-    month: int | None = None,
+    year: Year | None = None,
+    month: Month | None = None,
     only_remaining: bool = False,
 ) -> PersonnelDocumentList | ErrorResponse:
     """List personnel documents (HR files: contracts, declarations, etc.).

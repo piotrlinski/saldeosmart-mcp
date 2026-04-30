@@ -10,9 +10,13 @@ review cycles.
 
 ```bash
 make sync          # creates .venv, installs runtime + dev deps
-make test          # 130 tests should pass
-make lint          # ruff + mypy
+make test          # 321 tests should pass
+make lint          # ruff check + ruff format --check + mypy
+make format        # apply ruff format + ruff --fix
 ```
+
+A `.pre-commit-config.yaml` is wired up — `pre-commit install` once and the
+same gate runs on every `git commit`.
 
 You'll also need a `.env` (see `.env.example`) for the smoke test in
 `scripts/smoke_test.py`. It only hits read endpoints, so credentials in
@@ -36,13 +40,21 @@ multiple versions, and the latest stable is what you want.
 
 - For **read responses**: a class with `from_xml(cls, el) -> Model` and one
   `*List` wrapper if the endpoint returns a collection. Use the
-  `el_text` / `el_int` / `el_bool` helpers from `..http.xml`.
+  `el_text` / `el_int` / `el_bool` helpers from `..http.xml`. Read-side
+  date / identifier fields stay as plain `str | None` — the source is
+  Saldeo's own response and we trust it (see the docstring at the top of
+  `models/common.py`).
 - For **write inputs**: a `*Input` class with `BaseModel`. Required fields
   get no default; optional fields default to `None`. Lists of nested
   inputs use `Field(default_factory=list, max_length=N)` — pick a
   conservative bound so an LLM mistake can't fire a 10 MB request.
-- ISO date fields validate themselves: copy the `@field_validator` from
-  `FeeInput.maturity` in `models/catalog.py`.
+- Use the validated string aliases from `models/common.py` instead of bare
+  `str` / `int` for fields that have a known shape. The available aliases
+  are `IsoDate` (`YYYY-MM-DD`), `Nip` (10 digits), `Pesel` (11 digits),
+  `VatNumber` (optional EU country prefix + 8–15 digits), `Year` (2000–
+  2099), `Month` (1–12). They strip common copy-paste decorations and
+  raise a clean Pydantic error on garbage so the LLM gets a useful
+  message instead of an opaque Saldeo `4xxx` code.
 
 Re-export new models from `models/__init__.py` so tool modules can
 `from ..models import …` cleanly.
@@ -50,6 +62,12 @@ Re-export new models from `models/__init__.py` so tool modules can
 ### 3. Add the tool in `src/saldeosmart_mcp/tools/<resource>.py`
 
 ```python
+from . import endpoints                               # add the path here first
+from ._runtime import (
+    get_client, mcp, merge_call, parse_collection,
+    require_nonempty, saldeo_call,
+)
+
 @mcp.tool
 @saldeo_call
 def list_widgets(
@@ -71,16 +89,45 @@ def list_widgets(
         On failure: ErrorResponse — see docs/ERROR_CODES.md.
     """
     root = get_client().get(
-        "/api/xml/X.Y/widget/list",
+        endpoints.WIDGET_LIST,
         query={"company_program_id": company_program_id, "policy": policy},
     )
     items = parse_collection(root, "WIDGETS", "WIDGET", Widget.from_xml)
     return WidgetList(widgets=items, count=len(items))
+
+
+@mcp.tool
+@saldeo_call
+@require_nonempty("widgets", message="At least one widget is required.")
+def merge_widgets(
+    company_program_id: str,
+    widgets: list[WidgetInput],
+) -> MergeResult | ErrorResponse:
+    """One-line summary."""
+    xml = _build_widget_merge_xml(widgets)
+    return merge_call(
+        endpoints.WIDGET_MERGE,
+        xml,
+        total=len(widgets),
+        query={"company_program_id": company_program_id},
+    )
 ```
 
-The decorator order matters — `@mcp.tool` is outermost so FastMCP sees the
-`saldeo_call`-wrapped function with its return-type union including
-`ErrorResponse`.
+Decorator order matters and is left-to-right outside-in. `@mcp.tool` is the
+outermost so FastMCP sees the wrapped function with the
+`MergeResult | ErrorResponse` return type. `@saldeo_call` translates
+`SaldeoError` / `FileNotFoundError` / `PermissionError` / `ValueError`
+to `ErrorResponse`. `@require_nonempty` (under `@saldeo_call`) short-
+circuits empty list inputs before the network call; pass dotted paths
+(`"declarations.taxes"`) to reach into nested input models.
+
+Two helpers replace the repetitive write-tool body:
+
+- `merge_call(endpoint, xml, *, total, query=None, extra_form=None)`
+  wraps the universal `post_command(...) → summarize_merge(...)` pair.
+- `endpoints.<NAME>` (in `tools/endpoints.py`) is the only place that
+  knows API version numbers — never hard-code `/api/xml/...` strings in
+  a tool module. When Saldeo bumps a version, the change is one line.
 
 #### Docstring standard
 

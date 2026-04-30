@@ -17,8 +17,10 @@ from ..models import (
     ErrorResponse,
     FeeInput,
     MergeResult,
+    Month,
     PaymentMethodInput,
     RegisterInput,
+    Year,
 )
 from . import endpoints
 from ._builders import build_simple_merge_xml
@@ -213,8 +215,8 @@ def merge_articles(
 @require_nonempty("fees", message="At least one fee is required.")
 def merge_fees(
     company_program_id: str,
-    year: int,
-    month: int,
+    year: Year,
+    month: Month,
     fees: list[FeeInput],
 ) -> MergeResult | ErrorResponse:
     """Create or update the accounting-firm fee schedule for one month.

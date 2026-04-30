@@ -32,6 +32,22 @@ is broken or missing. Defined in `src/saldeosmart_mcp/http/client.py`.
 | `PARSE_ERROR`      | The 2xx body wasn't valid XML — usually an HTML error page from a proxy or load balancer. The first 500 chars of the body are in `message`. |
 | `UNKNOWN`          | The envelope had `<STATUS>ERROR</STATUS>` but `<ERROR_CODE>` was empty.    |
 
+## Tool-level synthetic codes (emitted before / instead of an API call)
+
+These come from the tool layer — `@require_nonempty`, `@saldeo_call`, and
+hand-written validation guards in individual tools. The string constants
+live in `src/saldeosmart_mcp/errors.py` (`ERROR_*`) so call sites stay
+typo-proof.
+
+| Code                            | Meaning                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `EMPTY_INPUT`                   | A required list argument was empty. Emitted by `@require_nonempty` before any network call. The `message` field names the resource (e.g. "At least one document is required."). |
+| `INVALID_INPUT`                 | A builder-level invariant on the input batch failed (currently: `document.import` attachment-count mismatch). |
+| `MISSING_CRITERIA`              | A search/lookup tool was called without enough criteria to be specific (e.g. `search_documents` with all of `document_id` / `number` / `nip` / `guid` set to `None`). |
+| `TOO_MANY_DOCUMENTS`            | A batch endpoint was asked to process more than its per-request cap. Currently only `import_documents` enforces this (cap = 50). |
+| `ATTACHMENT_NOT_FOUND`          | An `Attachment.path` does not exist on disk. Emitted by `@saldeo_call` when the tool body raises `FileNotFoundError`. |
+| `ATTACHMENT_PERMISSION_DENIED`  | An `Attachment.path` exists but isn't readable by the server process. Emitted by `@saldeo_call` when the tool body raises `PermissionError`. |
+
 ## Per-item validation errors
 
 Batch operations (`*.merge`, `update_documents`, etc.) succeed at the envelope

@@ -749,27 +749,34 @@ claude mcp add saldeosmart -- \
 <pre><code>src/saldeosmart_mcp/
 ├── config.py          # SaldeoConfig — env-driven settings
 ├── errors.py          # SaldeoError, ErrorResponse, ItemError, MergeResult,
-│                      # iter_item_errors (per-item failure walker)
+│                      # iter_item_errors, ERROR_* code constants
 ├── logging.py         # daily-rotated file logger
 │
 ├── http/              # transport layer
 │   ├── signing.py     # RequestSigner — MD5(URL-encode(sorted) + token)
 │   ├── client.py      # SaldeoClient — httpx + threading.Lock + envelope parser
-│   └── xml.py         # el_text/el_int/el_bool/set_text + URL redaction
+│   ├── xml.py         # el_text/el_int/el_bool/set_text + URL redaction
+│   └── attachments.py # Attachment + prepare_attachments — file → base64 + form
 │
 ├── models/            # everything serialized over MCP
-│   ├── common.py      # cross-resource (BankAccount, BankAccountInput)
+│   ├── common.py      # cross-resource: BankAccount(+Input) + validated string
+│   │                  # aliases (IsoDate, Nip, Pesel, VatNumber, Year, Month)
 │   ├── companies.py   ├── contractors.py
 │   ├── documents.py   ├── invoices.py
 │   ├── bank.py        ├── personnel.py
+│   ├── financial_balance.py   ├── accounting_close.py
 │   └── catalog.py     # categories, registers, payment methods, articles, fees
 │
 ├── tools/             # @mcp.tool registry — one file per resource
-│   ├── _runtime.py    # mcp = FastMCP(), saldeo_call, get_client,
-│   │                  # summarize_merge, parse_collection
+│   ├── _runtime.py    # mcp = FastMCP(), saldeo_call, require_nonempty,
+│   │                  # merge_call, get_client, summarize_merge, parse_collection
 │   ├── _builders.py   # XML builders shared across resources
+│   ├── _documents_builders.py # XML builders for the document tools
+│   ├── endpoints.py   # one Final[str] per /api/xml/... path (the only
+│   │                  # place that knows API version numbers)
 │   ├── companies.py   ├── contractors.py   ├── documents.py
 │   ├── invoices.py    ├── bank.py          ├── personnel.py
+│   ├── financial_balance.py   ├── accounting_close.py
 │   ├── dimensions.py  └── catalog.py
 │
 └── server.py          # main() — entrypoint; imports tools, runs mcp.run()</code></pre>
@@ -852,9 +859,11 @@ claude mcp add saldeosmart -- \
 
     <h3>Unit tests (no network)</h3>
 <pre><code>make test
-# 130 tests covering: signing, gzip+base64 round trip, error envelope parsing
+# 321 tests covering: signing, gzip+base64 round trip, error envelope parsing
 # (top-level + per-item), URL redaction, request lock concurrency,
-# SecretStr token protection, every request-XML builder, package layering.</code></pre>
+# SecretStr token protection, every request-XML builder, package layering,
+# input validators (IsoDate / Nip / Pesel / VatNumber / Year / Month), JSON
+# round-trip, Pydantic field constraints, and the @require_nonempty contract.</code></pre>
 
     <p>Tests mirror the source layout — the home for a new test is wherever the production code it covers lives:</p>
 <pre><code>tests/
@@ -864,11 +873,15 @@ claude mcp add saldeosmart -- \
     ├── test_errors.py                # SaldeoError → MCP payload shape
     ├── test_logging.py               # setup_logging env-var handling, rotation
     ├── http/
-    │   └── test_client.py            # signing, gzip+base64, error-envelope parser
+    │   ├── test_client.py            # signing, gzip+base64, error-envelope parser
+    │   └── test_attachments.py       # Attachment → base64 + form-field plumbing
     ├── models/
-    │   └── test_documents.py         # XML → Pydantic for documents/invoices
+    │   ├── test_documents.py         # XML → Pydantic for documents/invoices
+    │   ├── test_validators.py        # IsoDate, Nip, Pesel, VatNumber, Year, Month
+    │   └── test_serialization.py     # JSON round-trip + Pydantic field constraints
     └── tools/
-        └── test_builders.py          # every request-XML builder + summarize_merge</code></pre>
+        ├── test_builders.py          # every request-XML builder + summarize_merge
+        └── test_empty_input_guard.py # @require_nonempty contract for every write tool</code></pre>
 
     <h3>Live smoke test</h3>
     <p>Drop a <code>.env</code> at the repo root:</p>

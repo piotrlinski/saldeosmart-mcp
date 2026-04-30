@@ -26,7 +26,9 @@ from ..models import (
     DocumentUpdateInput,
     ErrorResponse,
     MergeResult,
+    Month,
     RecognizeOptionInput,
+    Year,
 )
 from . import endpoints
 from ._builders import build_folder_xml
@@ -136,8 +138,8 @@ def search_documents(
 @saldeo_call
 def get_document_id_list(
     company_program_id: str,
-    year: int,
-    month: int,
+    year: Year,
+    month: Month,
 ) -> DocumentIdGroups | ErrorResponse:
     """Discover all document IDs in one (year, month) folder, grouped by kind.
 
