@@ -28,6 +28,8 @@ def setup_logging() -> Path:
         SALDEO_LOG_LEVEL           — root log level (default INFO)
         SALDEO_LOG_RETENTION_DAYS  — how many daily-rotated files to keep
                                      (default 7)
+        SALDEO_LOG_UTC             — rotate at UTC midnight when truthy
+                                     (default false → local midnight)
 
     Idempotent: calling it twice with the same settings does not stack
     handlers. Returns the path to the live log file.
@@ -42,12 +44,14 @@ def setup_logging() -> Path:
         retention_days = 7
     retention_days = max(retention_days, 1)
 
+    use_utc = os.environ.get("SALDEO_LOG_UTC", "").strip().lower() in {"1", "true", "yes", "y"}
+
     handler = TimedRotatingFileHandler(
         log_file,
         when="midnight",
         backupCount=retention_days,
         encoding="utf-8",
-        utc=False,
+        utc=use_utc,
     )
     handler.setFormatter(
         _stdlogging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")

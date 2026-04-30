@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import threading
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 from xml.etree import ElementTree as ET
@@ -43,6 +44,7 @@ _P = ParamSpec("_P")
 # ---- Client lifecycle ------------------------------------------------------------
 
 _SHARED_CLIENT: SaldeoClient | None = None
+_CLIENT_LOCK = threading.Lock()
 
 
 def init_client(config: SaldeoConfig) -> SaldeoClient:
@@ -53,9 +55,10 @@ def init_client(config: SaldeoConfig) -> SaldeoClient:
     cached client without rebuilding it.
     """
     global _SHARED_CLIENT
-    if _SHARED_CLIENT is None:
-        _SHARED_CLIENT = SaldeoClient(config)
-    return _SHARED_CLIENT
+    with _CLIENT_LOCK:
+        if _SHARED_CLIENT is None:
+            _SHARED_CLIENT = SaldeoClient(config)
+        return _SHARED_CLIENT
 
 
 def get_client() -> SaldeoClient:
@@ -68,18 +71,22 @@ def get_client() -> SaldeoClient:
     the spec's "no concurrent requests" rule.
     """
     global _SHARED_CLIENT
-    if _SHARED_CLIENT is None:
-        try:
-            # BaseSettings loads username/api_token from SALDEO_* env vars.
-            config = SaldeoConfig()  # type: ignore[call-arg]
-        except ValidationError as e:
-            missing = ", ".join(f"SALDEO_{str(err['loc'][0]).upper()}" for err in e.errors())
-            raise RuntimeError(
-                f"Missing SaldeoSMART credentials ({missing}). The token is generated "
-                f"in SaldeoSMART under Settings → API."
-            ) from e
-        _SHARED_CLIENT = SaldeoClient(config)
-    return _SHARED_CLIENT
+    with _CLIENT_LOCK:
+        if _SHARED_CLIENT is None:
+            try:
+                # BaseSettings loads username/api_token from SALDEO_* env vars.
+                config = SaldeoConfig()  # type: ignore[call-arg]
+            except ValidationError as e:
+                missing = ", ".join(
+                    f"SALDEO_{str(err['loc'][0]).upper()}" if err.get("loc") else "SALDEO_?"
+                    for err in e.errors()
+                )
+                raise RuntimeError(
+                    f"Missing SaldeoSMART credentials ({missing}). The token is generated "
+                    f"in SaldeoSMART under Settings → API."
+                ) from e
+            _SHARED_CLIENT = SaldeoClient(config)
+        return _SHARED_CLIENT
 
 
 def close_client() -> None:
@@ -89,9 +96,10 @@ def close_client() -> None:
     tests that need to swap configs between runs.
     """
     global _SHARED_CLIENT
-    if _SHARED_CLIENT is not None:
-        _SHARED_CLIENT.close()
-        _SHARED_CLIENT = None
+    with _CLIENT_LOCK:
+        if _SHARED_CLIENT is not None:
+            _SHARED_CLIENT.close()
+            _SHARED_CLIENT = None
 
 
 # ---- Decorators ------------------------------------------------------------------
@@ -111,6 +119,10 @@ def saldeo_call(fn: Callable[_P, _T]) -> Callable[_P, _T | ErrorResponse]:
             return fn(*args, **kwargs)
         except SaldeoError as e:
             return error_response(e)
+        except FileNotFoundError as e:
+            return ErrorResponse(error="ATTACHMENT_NOT_FOUND", message=str(e))
+        except PermissionError as e:
+            return ErrorResponse(error="ATTACHMENT_PERMISSION_DENIED", message=str(e))
 
     return wrapper
 

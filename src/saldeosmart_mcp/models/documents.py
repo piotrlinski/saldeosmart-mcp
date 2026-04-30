@@ -149,8 +149,11 @@ class DocumentIdGroups(BaseModel):
                 return []
             out: list[int] = []
             for el in container_el.findall(leaf):
-                if el.text and el.text.strip().isdigit():
-                    out.append(int(el.text.strip()))
+                if el.text:
+                    try:
+                        out.append(int(el.text.strip()))
+                    except ValueError:
+                        continue
             return out
 
         return cls(
@@ -226,18 +229,27 @@ class DocumentAddRecognizeResult(BaseModel):
     def from_xml(cls, root: ET.Element) -> DocumentAddRecognizeResult:
         doc = root.find("DOCUMENT")
         wallet = root.find("WALLET")
+
+        def _maybe_float(value: str | None) -> float | None:
+            if not value:
+                return None
+            try:
+                return float(value)
+            except ValueError:
+                return None
+
         cost = el_text(doc, "COST") if doc is not None else None
         credits = el_text(wallet, "REMAINING_CREDITS") if wallet is not None else None
         return cls(
             status=(el_text(doc, "STATUS") if doc is not None else None) or "UNKNOWN",
             status_message=el_text(doc, "STATUS_MESSAGE") if doc is not None else None,
             ocr_origin_id=el_int(doc, "OCR_ORIGIN_ID") if doc is not None else None,
-            cost=float(cost) if cost else None,
+            cost=_maybe_float(cost),
             sent_document_count=el_int(doc, "SENT_DOCUMENT_COUNT") if doc is not None else None,
             sent_page_count=el_int(doc, "SENT_PAGE_COUNT") if doc is not None else None,
             split_mode=el_text(doc, "SPLIT_MODE") if doc is not None else None,
             no_rotate=el_bool(doc, "NO_ROTATE") if doc is not None else None,
-            remaining_credits=float(credits) if credits else None,
+            remaining_credits=_maybe_float(credits),
         )
 
 
