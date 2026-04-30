@@ -177,17 +177,17 @@ def _append_assurance_details(
     # The TYPE leads in every variant; ZUS-XX field order matches the spec
     # example (zus_51 / zus_52 / zus_53 / zus_54 for headcount-based variants,
     # zus_contribution / zus_excess_payment | zus_underpayment for owner /
-    # partner variants).
-    if isinstance(details, AssuranceEmployeesDetailsInput):
-        set_text(parent, "TYPE", "EMPLOYEES")
+    # partner variants). Dispatch on the discriminator field rather than
+    # isinstance so the union stays in lock-step with the model declarations.
+    set_text(parent, "TYPE", details.type)
+    if details.type == "EMPLOYEES":
         set_text(parent, "PERIOD", details.period)
         set_text(parent, "DEADLINE", details.deadline)
         set_text(parent, "ZUS-51", details.zus_51)
         set_text(parent, "ZUS-52", details.zus_52)
         set_text(parent, "ZUS-53", details.zus_53)
         set_text(parent, "ZUS-54", details.zus_54)
-    elif isinstance(details, AssurancePersonalDetailsInput):
-        set_text(parent, "TYPE", "PERSONAL")
+    elif details.type == "PERSONAL":
         set_text(parent, "LAST_NAME", details.last_name)
         set_text(parent, "FIRST_NAME", details.first_name)
         set_text(parent, "PERSON_ID_TYPE", details.person_id_type)
@@ -199,15 +199,13 @@ def _append_assurance_details(
         set_text(parent, "ZUS-52", details.zus_52)
         set_text(parent, "ZUS-53", details.zus_53)
         set_text(parent, "ZUS-54", details.zus_54)
-    elif isinstance(details, AssuranceCompanyDetailsInput):
-        set_text(parent, "TYPE", "COMPANY")
+    elif details.type == "COMPANY":
         set_text(parent, "PERIOD", details.period)
         set_text(parent, "DEADLINE", details.deadline)
         set_text(parent, "ZUS_CONTRIBUTION", details.zus_contribution)
         set_text(parent, "ZUS_EXCESS_PAYMENT", details.zus_excess_payment)
         set_text(parent, "ZUS_DESCRIPTION", details.zus_description)
-    elif isinstance(details, AssurancePartnerDetailsInput):
-        set_text(parent, "TYPE", "PARTNER")
+    elif details.type == "PARTNER":
         set_text(parent, "LAST_NAME", details.last_name)
         set_text(parent, "FIRST_NAME", details.first_name)
         set_text(parent, "PERSON_ID_TYPE", details.person_id_type)

@@ -17,7 +17,7 @@ the first time ``saldeosmart_mcp.tools`` is imported (via ``server.main()``).
 """
 
 from .config import SaldeoConfig
-from .errors import ErrorResponse, ItemError, ItemErrorPayload, MergeResult, SaldeoError
+from .errors import ErrorResponse, ItemError, MergeResult, SaldeoError
 from .http import SaldeoClient
 from .models import (
     ArticleInput,
@@ -90,7 +90,6 @@ __all__ = [
     "InvoiceIdGroups",
     "InvoiceList",
     "ItemError",
-    "ItemErrorPayload",
     "MergeResult",
     "PaymentMethodInput",
     "PersonnelDocument",

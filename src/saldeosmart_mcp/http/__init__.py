@@ -8,7 +8,7 @@ deps) → ``client`` (depends on ``config``, ``errors``, ``signing``,
 from .attachments import Attachment, PreparedAttachment, prepare_attachments
 from .client import SaldeoClient
 from .signing import RequestSigner, new_req_id, saldeo_url_encode
-from .xml import el_bool, el_int, el_text, redact_params, redact_url, set_text
+from .xml import el_bool, el_int, el_text, parse_int_list, redact_params, redact_url, set_text
 
 __all__ = [
     "Attachment",
@@ -19,6 +19,7 @@ __all__ = [
     "el_int",
     "el_text",
     "new_req_id",
+    "parse_int_list",
     "prepare_attachments",
     "redact_params",
     "redact_url",

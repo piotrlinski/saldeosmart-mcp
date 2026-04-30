@@ -9,11 +9,12 @@ discriminated by ``TYPE``.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 from ..http.attachments import Attachment
+from .common import IsoDate
 
 # ---- Shared pieces ---------------------------------------------------------------
 
@@ -45,7 +46,7 @@ class TaxDetailsInput(BaseModel):
     type: str
     period: str
     period_type: PeriodType
-    deadline: str  # ISO YYYY-MM-DD
+    deadline: IsoDate
     tax_value: str
     correction_no: str | None = None
     description: str | None = None
@@ -81,8 +82,9 @@ PersonIdType = Literal["PES", "NIP", "DOW", "PAS"]
 class AssuranceEmployeesDetailsInput(BaseModel):
     """``<ASSURANCE_DETAILS>`` for ``TYPE=EMPLOYEES`` — ZUS-51 to ZUS-54 totals."""
 
+    type: Literal["EMPLOYEES"] = "EMPLOYEES"
     period: str
-    deadline: str
+    deadline: IsoDate
     zus_51: str | None = None
     zus_52: str | None = None
     zus_53: str | None = None
@@ -92,12 +94,13 @@ class AssuranceEmployeesDetailsInput(BaseModel):
 class AssurancePersonalDetailsInput(BaseModel):
     """``<ASSURANCE_DETAILS>`` for ``TYPE=PERSONAL`` — single employee."""
 
+    type: Literal["PERSONAL"] = "PERSONAL"
     last_name: str
     first_name: str
     person_id_type: PersonIdType
     person_id: str
     period: str
-    deadline: str
+    deadline: IsoDate
     person_code: str | None = None
     zus_51: str | None = None
     zus_52: str | None = None
@@ -108,8 +111,9 @@ class AssurancePersonalDetailsInput(BaseModel):
 class AssuranceCompanyDetailsInput(BaseModel):
     """``<ASSURANCE_DETAILS>`` for ``TYPE=COMPANY`` — owner contributions."""
 
+    type: Literal["COMPANY"] = "COMPANY"
     period: str
-    deadline: str
+    deadline: IsoDate
     zus_contribution: str | None = None
     zus_excess_payment: str | None = None
     zus_description: str | None = None
@@ -118,24 +122,26 @@ class AssuranceCompanyDetailsInput(BaseModel):
 class AssurancePartnerDetailsInput(BaseModel):
     """``<ASSURANCE_DETAILS>`` for ``TYPE=PARTNER`` — single partner."""
 
+    type: Literal["PARTNER"] = "PARTNER"
     last_name: str
     first_name: str
     person_id_type: PersonIdType
     person_id: str
     period: str
-    deadline: str
+    deadline: IsoDate
     person_code: str | None = None
     zus_contribution: str | None = None
     zus_underpayment: str | None = None
     zus_description: str | None = None
 
 
-AssuranceDetailsInput = (
+AssuranceDetailsInput = Annotated[
     AssuranceEmployeesDetailsInput
     | AssurancePersonalDetailsInput
     | AssuranceCompanyDetailsInput
-    | AssurancePartnerDetailsInput
-)
+    | AssurancePartnerDetailsInput,
+    Field(discriminator="type"),
+]
 
 
 class AssuranceItemInput(BaseModel):

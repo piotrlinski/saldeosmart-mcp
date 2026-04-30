@@ -671,7 +671,7 @@ claude mcp add saldeosmart -- \
     operation: str | None       # echoed Saldeo operation name (METAINF/OPERATION)
     total: int                  # how many items the request contained
     successful: int              # items that came back with an OK per-item status
-    errors: list[ItemErrorPayload] = []   # per-item failures (validation + operational)
+    errors: list[ItemError] = []   # per-item failures (validation + operational)
 </code></pre>
 
     <p>The other input models (<code>CategoryInput</code>, <code>RegisterInput</code>, <code>DimensionInput</code>, <code>ArticleInput</code>, <code>FeeInput</code>, <code>DocumentUpdateInput</code>, <code>DocumentSyncInput</code>, <code>RecognizeOptionInput</code>, <code>DocumentDimensionInput</code>, …) follow the same shape: required fields are unannotated, optional ones default to <code>None</code> or empty list.</p>
@@ -700,7 +700,7 @@ claude mcp add saldeosmart -- \
         <tr>
           <td>Per-item failure</td>
           <td><code>STATUS=OK</code> at the envelope, but individual items have <code>UPDATE_STATUS=NOT_VALID</code> or <code>STATUS=ERROR</code> with nested <code>&lt;ERRORS&gt;</code>.</td>
-          <td><code>MergeResult.errors</code> (list of <code>ItemErrorPayload</code>).</td>
+          <td><code>MergeResult.errors</code> (list of <code>ItemError</code>).</td>
         </tr>
       </tbody>
     </table>

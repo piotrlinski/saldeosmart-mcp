@@ -32,7 +32,6 @@ from . import (
 )
 from ._runtime import (
     close_client,
-    error_response,
     get_client,
     mcp,
     parse_collection,
@@ -125,7 +124,6 @@ __all__ = [
     "update_documents",
     # Runtime helpers
     "close_client",
-    "error_response",
     "get_client",
     "mcp",
     "parse_collection",
