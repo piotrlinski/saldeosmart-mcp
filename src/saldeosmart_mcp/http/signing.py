@@ -67,8 +67,11 @@ class RequestSigner:
         Spec example shows: "req_id=<req-id>username=<username>" — pairs are joined
         with NO separator. We mirror that exactly.
         """
-        if any(not k or v is None or v == "" for k, v in params.items()):
-            raise ValueError("Signature params must not be empty or null")
+        for k, v in params.items():
+            if not k:
+                raise ValueError("Signature param has empty key")
+            if v is None or v == "":
+                raise ValueError(f"Signature param {k!r} must not be empty or null")
 
         sorted_pairs = sorted(params.items(), key=lambda kv: kv[0])
         base_string = "".join(f"{k}={v}" for k, v in sorted_pairs)

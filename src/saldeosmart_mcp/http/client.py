@@ -144,14 +144,15 @@ class SaldeoClient:
         """SaldeoSMART responses are XML (httpx auto-decompresses gzip thanks to
         the Accept-Encoding header). Parses, then checks for STATUS=ERROR.
 
-        Order of checks:
-          1. Try to parse the body as XML — even on HTTP 4xx/5xx, the server
-             often returns the standard error envelope, and ERROR_CODE there
-             is much more useful than the bare HTTP status.
-          2. If parsed body has <STATUS>ERROR</STATUS>, raise SaldeoError
-             with ERROR_CODE / ERROR_MESSAGE from the envelope.
-          3. Else if HTTP status is non-2xx, raise an HTTP_<code> error.
-          4. Else if XML parse failed entirely, raise PARSE_ERROR.
+        Order of checks (mirrors the numbered comments below):
+          1. If parsed body has <STATUS>ERROR</STATUS>, raise SaldeoError
+             with ERROR_CODE / ERROR_MESSAGE from the envelope. This wins
+             over HTTP status — even on HTTP 4xx/5xx, the server often
+             returns the standard error envelope, and ERROR_CODE there is
+             much more useful than the bare HTTP status.
+          2. Else if HTTP status is non-2xx, raise an HTTP_<code> error.
+          3. Else if XML parse failed entirely, raise PARSE_ERROR.
+          4. Else log the success line and return the parsed root.
         """
         text = resp.text  # httpx handles gzip transparently
         http_status = resp.status_code

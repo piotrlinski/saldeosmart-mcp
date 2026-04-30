@@ -82,7 +82,10 @@ def main(argv: list[str] | None = None) -> None:
             base_url=args.base_url,
         )
     except ValidationError as e:
-        missing = ", ".join(f"--{str(err['loc'][0]).replace('_', '-')}" for err in e.errors())
+        missing = ", ".join(
+            f"--{str(err['loc'][0]).replace('_', '-')}" if err.get("loc") else "--?"
+            for err in e.errors()
+        )
         logger.error("Startup aborted: missing credentials (%s)", missing)
         raise RuntimeError(
             f"Missing SaldeoSMART credentials ({missing}). Pass them as "

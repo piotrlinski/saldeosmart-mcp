@@ -342,6 +342,14 @@ def import_documents(
             error="EMPTY_INPUT",
             message="At least one document is required.",
         )
+    if len(documents) > 50:
+        return ErrorResponse(
+            error="TOO_MANY_DOCUMENTS",
+            message=(
+                f"document.import accepts at most 50 documents per request, "
+                f"got {len(documents)}."
+            ),
+        )
     all_attachments: list[Attachment] = []
     for doc in documents:
         all_attachments.append(doc.attachment)
@@ -688,6 +696,11 @@ def _build_document_import_xml(
     # Element order matches document_import_request.xsd. Each <DOCUMENT>
     # consumes 1 + len(doc.attachments) entries from `prepared`: the source
     # file first, then each supporting attachment.
+    expected = sum(1 + len(doc.attachments) for doc in documents)
+    if len(prepared) != expected:
+        raise AssertionError(
+            f"prepared attachment count mismatch: got {len(prepared)}, expected {expected}"
+        )
     root = ET.Element("ROOT")
     container = ET.SubElement(root, "DOCUMENTS")
     cursor = 0

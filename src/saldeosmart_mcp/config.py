@@ -8,7 +8,7 @@ domain models.
 
 from __future__ import annotations
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_BASE_URL = "https://saldeo.brainshare.pl"
@@ -32,6 +32,6 @@ class SaldeoConfig(BaseSettings):
     username: str
     api_token: SecretStr
     base_url: str = DEFAULT_BASE_URL
-    timeout: float = DEFAULT_TIMEOUT
+    timeout: float = Field(default=DEFAULT_TIMEOUT, gt=0)
 
     model_config = SettingsConfigDict(env_prefix="SALDEO_", extra="ignore")

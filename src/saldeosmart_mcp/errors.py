@@ -137,19 +137,6 @@ _ITEM_ID_TAGS = (
 )
 
 
-def _local_el_text(parent: ET.Element, tag: str) -> str | None:
-    """Local mini-helper so this module stays free of cross-package imports.
-
-    Mirrors `saldeosmart_mcp.http.xml.el_text` for the narrow case where the
-    iter_item_errors walker needs to read child text. Kept private so the
-    public XML helpers live in one place.
-    """
-    child = parent.find(tag)
-    if child is None or child.text is None:
-        return None
-    return child.text.strip()
-
-
 def iter_item_errors(root: ET.Element) -> list[ItemError]:
     """Walk a successful (STATUS=OK) RESPONSE and collect per-item failures.
 
@@ -160,6 +147,11 @@ def iter_item_errors(root: ET.Element) -> list[ItemError]:
 
     Returns an empty list if everything succeeded.
     """
+    # Local import: errors.py is itself imported by http/client.py via
+    # http/__init__.py, so a module-level `from .http.xml import el_text`
+    # would close the cycle. Module imports are cached after the first call.
+    from .http.xml import el_text
+
     errors: list[ItemError] = []
     # Walk only container > row level: <RESPONSE><DOCUMENTS><DOCUMENT>...,
     # <RESPONSE><PERSONNEL_DOCUMENTS><PERSONNEL_DOCUMENT>..., etc. Using
@@ -177,7 +169,7 @@ def iter_item_errors(root: ET.Element) -> list[ItemError]:
                 continue
 
             item_id = next(
-                (_local_el_text(item, t) for t in _ITEM_ID_TAGS if item.find(t) is not None),
+                (el_text(item, t) for t in _ITEM_ID_TAGS if item.find(t) is not None),
                 None,
             )
 
@@ -189,8 +181,8 @@ def iter_item_errors(root: ET.Element) -> list[ItemError]:
                     errors.append(
                         ItemError(
                             status=status_value,
-                            path=(_local_el_text(err, "PATH") or "").strip(),
-                            message=(_local_el_text(err, "MESSAGE") or "").strip(),
+                            path=el_text(err, "PATH") or "",
+                            message=el_text(err, "MESSAGE") or "",
                             item_id=item_id,
                         )
                     )
@@ -198,9 +190,7 @@ def iter_item_errors(root: ET.Element) -> list[ItemError]:
 
             # Operational errors: sibling <ERROR_MESSAGE/> or <STATUS_MESSAGE/>
             if not added:
-                msg = (_local_el_text(item, "ERROR_MESSAGE") or "").strip() or (
-                    _local_el_text(item, "STATUS_MESSAGE") or ""
-                ).strip()
+                msg = el_text(item, "ERROR_MESSAGE") or el_text(item, "STATUS_MESSAGE") or ""
                 errors.append(
                     ItemError(
                         status=status_value,
