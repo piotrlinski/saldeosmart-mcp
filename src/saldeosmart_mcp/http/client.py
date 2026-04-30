@@ -182,18 +182,15 @@ class SaldeoClient:
         return root
 
     @staticmethod
-    def _raise_if_envelope_error(
-        root: ET.Element, text: str, http_status: int, url: str
-    ) -> None:
+    def _raise_if_envelope_error(root: ET.Element, text: str, http_status: int, url: str) -> None:
         """Raise SaldeoError if the parsed body has <STATUS>ERROR</STATUS>."""
         status_el = root.find("STATUS")
         if status_el is None or (status_el.text or "").strip().upper() != "ERROR":
             return
         code = (el_text(root, "ERROR_CODE") or "").strip() or "UNKNOWN"
         msg = (
-            (el_text(root, "ERROR_MESSAGE") or "").strip()
-            or "SaldeoSMART returned STATUS=ERROR with no ERROR_MESSAGE"
-        )
+            el_text(root, "ERROR_MESSAGE") or ""
+        ).strip() or "SaldeoSMART returned STATUS=ERROR with no ERROR_MESSAGE"
         logger.warning(
             "SaldeoSMART API error: code=%s message=%s http_status=%s url=%s",
             code,
@@ -223,9 +220,7 @@ class SaldeoClient:
         )
 
     @staticmethod
-    def _raise_parse_error(
-        text: str, url: str, parse_error: ET.ParseError | None
-    ) -> NoReturn:
+    def _raise_parse_error(text: str, url: str, parse_error: ET.ParseError | None) -> NoReturn:
         """Raise SaldeoError when the 2xx body isn't valid XML."""
         logger.warning(
             "SaldeoSMART parse error: %s url=%s body=%r",

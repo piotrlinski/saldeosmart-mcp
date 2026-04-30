@@ -53,18 +53,17 @@ def setup_logging() -> Path:
         encoding="utf-8",
         utc=use_utc,
     )
-    handler.setFormatter(
-        _stdlogging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
-    )
+    handler.setFormatter(_stdlogging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
 
     root = _stdlogging.getLogger()
     root.setLevel(os.environ.get("SALDEO_LOG_LEVEL", "INFO"))
 
-    # Idempotent: don't stack handlers if main() runs twice (tests, reloads).
-    for existing in root.handlers:
-        if isinstance(existing, TimedRotatingFileHandler) and getattr(
-            existing, "baseFilename", ""
-        ) == str(log_file):
-            return log_file
+    # Idempotent: drop any prior rotating-file handler this module installed
+    # (matched by class, not path, so changing SALDEO_LOG_DIR between calls
+    # doesn't leak handlers from a previous configuration).
+    for existing in list(root.handlers):
+        if isinstance(existing, TimedRotatingFileHandler):
+            root.removeHandler(existing)
+            existing.close()
     root.addHandler(handler)
     return log_file

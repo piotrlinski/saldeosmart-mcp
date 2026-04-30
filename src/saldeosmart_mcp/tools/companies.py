@@ -13,7 +13,8 @@ from ..models import (
     ErrorResponse,
     MergeResult,
 )
-from ._runtime import get_client, mcp, parse_collection, saldeo_call, summarize_merge
+from . import endpoints
+from ._runtime import get_client, mcp, merge_call, parse_collection, require_nonempty, saldeo_call
 
 
 @mcp.tool
@@ -31,13 +32,14 @@ def list_companies(company_program_id: str | None = None) -> CompanyList | Error
         an ErrorResponse with code, message, and optional per-item details.
     """
     query = {"company_program_id": company_program_id} if company_program_id else {}
-    root = get_client().get("/api/xml/1.0/company/list", query=query)
+    root = get_client().get(endpoints.COMPANY_LIST, query=query)
     companies = parse_collection(root, "COMPANIES", "COMPANY", Company.from_xml)
     return CompanyList(companies=companies, count=len(companies))
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("companies", message="At least one company mapping is required.")
 def synchronize_companies(
     companies: list[CompanySynchronizeInput],
 ) -> MergeResult | ErrorResponse:
@@ -48,14 +50,8 @@ def synchronize_companies(
     ``COMPANY_PROGRAM_ID`` for the matching ``COMPANY_ID`` — Saldeo answers
     per-item with ``MERGED`` / ``NOT_VALID`` / ``CONFLICT``.
     """
-    if not companies:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one company mapping is required.",
-        )
     xml = _build_company_synchronize_xml(companies)
-    root = get_client().post_command("/api/xml/1.0/company/synchronize", xml_command=xml)
-    return summarize_merge(root, total=len(companies))
+    return merge_call(endpoints.COMPANY_SYNCHRONIZE, xml, total=len(companies))
 
 
 def _build_company_synchronize_xml(companies: list[CompanySynchronizeInput]) -> str:
@@ -70,6 +66,7 @@ def _build_company_synchronize_xml(companies: list[CompanySynchronizeInput]) -> 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("companies", message="At least one company is required.")
 def create_companies(
     companies: list[CompanyCreateInput],
 ) -> MergeResult | ErrorResponse:
@@ -84,14 +81,8 @@ def create_companies(
     Many required fields and irreversible side effects — usually low value
     for an interactive MCP session, but exposed here for completeness.
     """
-    if not companies:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one company is required.",
-        )
     xml = _build_company_create_xml(companies)
-    root = get_client().post_command("/api/xml/2.19/company/create", xml_command=xml)
-    return summarize_merge(root, total=len(companies))
+    return merge_call(endpoints.COMPANY_CREATE, xml, total=len(companies))
 
 
 def _build_company_create_xml(companies: list[CompanyCreateInput]) -> str:
@@ -99,9 +90,7 @@ def _build_company_create_xml(companies: list[CompanyCreateInput]) -> str:
     # written when any of the input rows set ``producer`` — Saldeo allows a
     # single METAINF block at the top of the request, not per-company.
     root = ET.Element("ROOT")
-    producer = next(
-        (c.producer for c in companies if c.producer), None
-    )
+    producer = next((c.producer for c in companies if c.producer), None)
     if producer:
         metainf = ET.SubElement(root, "METAINF")
         set_text(metainf, "PRODUCER", producer)

@@ -20,7 +20,8 @@ from ..models import (
     PersonnelDocumentAddInput,
     PersonnelDocumentList,
 )
-from ._runtime import get_client, mcp, parse_collection, saldeo_call, summarize_merge
+from . import endpoints
+from ._runtime import get_client, mcp, merge_call, parse_collection, require_nonempty, saldeo_call
 
 
 @mcp.tool
@@ -33,7 +34,7 @@ def list_employees(company_program_id: str) -> EmployeeList | ErrorResponse:
     inactive flag); contracts and full payroll detail are not surfaced here.
     """
     root = get_client().get(
-        "/api/xml/2.20/employee/list",
+        endpoints.EMPLOYEE_LIST,
         query={"company_program_id": company_program_id},
     )
     employees = parse_collection(root, "EMPLOYEES", "EMPLOYEE", Employee.from_xml)
@@ -69,7 +70,7 @@ def list_personnel_documents(
         only_remaining=only_remaining,
     )
     root = get_client().post_command(
-        "/api/xml/2.20/personnel_document/list",
+        endpoints.PERSONNEL_DOCUMENT_LIST,
         xml_command=xml,
         query={"company_program_id": company_program_id},
     )
@@ -81,6 +82,7 @@ def list_personnel_documents(
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("employees", message="At least one employee is required.")
 def add_employees(
     company_program_id: str,
     employees: list[EmployeeAddInput],
@@ -94,18 +96,13 @@ def add_employees(
 
     Requires the SaldeoSMART Personnel module on the account.
     """
-    if not employees:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one employee is required.",
-        )
     xml = _build_employee_add_xml(employees)
-    root = get_client().post_command(
-        "/api/xml/2.21/employee/add",
-        xml_command=xml,
+    return merge_call(
+        endpoints.EMPLOYEE_ADD,
+        xml,
+        total=len(employees),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(employees))
 
 
 def _build_employee_add_xml(employees: list[EmployeeAddInput]) -> str:
@@ -148,6 +145,7 @@ def _build_employee_add_xml(employees: list[EmployeeAddInput]) -> str:
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("documents", message="At least one personnel document is required.")
 def add_personnel_documents(
     company_program_id: str,
     documents: list[PersonnelDocumentAddInput],
@@ -158,20 +156,15 @@ def add_personnel_documents(
     optional metadata) with one file from the local filesystem. Saldeo
     accepts up to 50 entries per request.
     """
-    if not documents:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one personnel document is required.",
-        )
     prepared, form = prepare_attachments([d.attachment for d in documents])
     xml = _build_personnel_document_add_xml(documents, prepared)
-    root = get_client().post_command(
-        "/api/xml/2.22/personnel_document/add",
-        xml_command=xml,
+    return merge_call(
+        endpoints.PERSONNEL_DOCUMENT_ADD,
+        xml,
+        total=len(documents),
         query={"company_program_id": company_program_id},
         extra_form=form,
     )
-    return summarize_merge(root, total=len(documents))
 
 
 def _build_personnel_document_add_xml(

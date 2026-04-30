@@ -56,8 +56,7 @@ def test_setup_logging_default_retention_is_one_week(
     setup_logging()
 
     handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
+        h for h in logging.getLogger().handlers if isinstance(h, TimedRotatingFileHandler)
     )
     assert handler.backupCount == 7
     assert handler.when == "MIDNIGHT"
@@ -72,8 +71,7 @@ def test_setup_logging_respects_custom_retention(
     setup_logging()
 
     handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
+        h for h in logging.getLogger().handlers if isinstance(h, TimedRotatingFileHandler)
     )
     assert handler.backupCount == 3
 
@@ -88,8 +86,7 @@ def test_setup_logging_invalid_retention_falls_back_to_default(
     setup_logging()
 
     handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
+        h for h in logging.getLogger().handlers if isinstance(h, TimedRotatingFileHandler)
     )
     assert handler.backupCount == 7
 
@@ -104,8 +101,7 @@ def test_setup_logging_zero_retention_is_clamped_to_one(
     setup_logging()
 
     handler = next(
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
+        h for h in logging.getLogger().handlers if isinstance(h, TimedRotatingFileHandler)
     )
     assert handler.backupCount >= 1
 
@@ -121,8 +117,7 @@ def test_setup_logging_is_idempotent(
     setup_logging()
 
     file_handlers = [
-        h for h in logging.getLogger().handlers
-        if isinstance(h, TimedRotatingFileHandler)
+        h for h in logging.getLogger().handlers if isinstance(h, TimedRotatingFileHandler)
     ]
     assert len(file_handlers) == 1
 

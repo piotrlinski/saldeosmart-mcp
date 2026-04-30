@@ -7,8 +7,9 @@ from xml.etree import ElementTree as ET
 from ..http.attachments import PreparedAttachment, prepare_attachments
 from ..http.xml import set_text
 from ..models import ErrorResponse, FinancialBalanceMergeInput, MergeResult
+from . import endpoints
 from ._builders import append_close_attachments
-from ._runtime import get_client, mcp, saldeo_call, summarize_merge
+from ._runtime import mcp, merge_call, saldeo_call
 
 
 @mcp.tool
@@ -28,17 +29,15 @@ def merge_financial_balance(
     spreadsheet, a scanned report, etc.). Each attachment is read at tool
     invocation time and uploaded as a separate ``attmnt_N`` form field.
     """
-    prepared, form = prepare_attachments(
-        [a.attachment for a in balance.attachments]
-    )
+    prepared, form = prepare_attachments([a.attachment for a in balance.attachments])
     xml = _build_financial_balance_merge_xml(balance, prepared)
-    root = get_client().post_command(
-        "/api/xml/1.15/financial_balance/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.FINANCIAL_BALANCE_MERGE,
+        xml,
+        total=1,
         query={"company_program_id": company_program_id},
         extra_form=form,
     )
-    return summarize_merge(root, total=1)
 
 
 def _build_financial_balance_merge_xml(

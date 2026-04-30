@@ -29,12 +29,12 @@ PACKAGE_ROOT = Path(__file__).resolve().parent.parent.parent / "src" / "saldeosm
 LAYERS: dict[str, int] = {
     "config": 0,
     "errors": 1,
-    "logging": 1,         # peer of errors — neither depends on the other
+    "logging": 1,  # peer of errors — neither depends on the other
     "http": 2,
     "models": 3,
     "tools": 4,
     "server": 5,
-    "__init__": 5,        # public surface — may pull from anywhere
+    "__init__": 5,  # public surface — may pull from anywhere
     "__main__": 5,
 }
 
@@ -50,10 +50,7 @@ def _layer_of(module_path: tuple[str, ...]) -> str:
 
 def _iter_python_files() -> list[Path]:
     """Yield every .py file under the package, excluding caches."""
-    return sorted(
-        p for p in PACKAGE_ROOT.rglob("*.py")
-        if "__pycache__" not in p.parts
-    )
+    return sorted(p for p in PACKAGE_ROOT.rglob("*.py") if "__pycache__" not in p.parts)
 
 
 def _parse_relative_imports(source: str) -> list[tuple[int, tuple[str, ...]]]:
@@ -87,9 +84,7 @@ def _module_path_for(file_path: Path) -> tuple[str, ...]:
     return parts
 
 
-def _imports_from(
-    source_path: Path, level: int, target_module: tuple[str, ...]
-) -> tuple[str, ...]:
+def _imports_from(source_path: Path, level: int, target_module: tuple[str, ...]) -> tuple[str, ...]:
     """Resolve a relative `from X import Y` to an absolute module path inside the package.
 
     ``level=1`` resolves against the current module's parent; ``level=2`` against
@@ -179,8 +174,11 @@ def test_layers_match_directory_structure() -> None:
         "__init__.py",
         "__main__.py",
     }
-    actual = {p.name for p in PACKAGE_ROOT.iterdir() if not p.name.startswith(".")
-              and p.name != "__pycache__"}
+    actual = {
+        p.name
+        for p in PACKAGE_ROOT.iterdir()
+        if not p.name.startswith(".") and p.name != "__pycache__"
+    }
     missing = expected - actual
     assert not missing, f"expected layout entries not found: {missing}"
 
@@ -221,8 +219,10 @@ def test_every_mcp_tool_is_wrapped_by_saldeo_call(py_file: Path) -> None:
         # `mcp.tool` may be the only "tool" attribute we use, but be precise:
         # only flag when the decorator chain explicitly invokes `mcp.tool`.
         is_mcp_tool = any(
-            isinstance(d, ast.Attribute) and d.attr == "tool"
-            and isinstance(d.value, ast.Name) and d.value.id == "mcp"
+            isinstance(d, ast.Attribute)
+            and d.attr == "tool"
+            and isinstance(d.value, ast.Name)
+            and d.value.id == "mcp"
             for d in node.decorator_list
         ) or any(
             isinstance(d, ast.Call)

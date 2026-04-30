@@ -7,7 +7,7 @@ from xml.etree import ElementTree as ET
 from pydantic import BaseModel, Field
 
 from ..http.xml import el_bool, el_int, el_text
-from .common import BankAccountInput
+from .common import BankAccountInput, VatNumber
 
 
 class Contractor(BaseModel):
@@ -53,7 +53,7 @@ class ContractorInput(BaseModel):
     contractor_id: int | None = None
     supplier: bool | None = None
     customer: bool | None = None
-    vat_number: str | None = None
+    vat_number: VatNumber | None = None
     city: str | None = None
     postcode: str | None = None
     street: str | None = None

@@ -16,9 +16,33 @@ mutate state need to inspect each item.
 
 from __future__ import annotations
 
+from typing import Final
 from xml.etree import ElementTree as ET
 
 from pydantic import BaseModel, Field
+
+# ---- Client-side error codes -----------------------------------------------------
+# Codes returned to the MCP client for tool-level / transport failures (i.e. before
+# Saldeo is involved, or when Saldeo's own envelope is unparseable). Saldeo-side
+# error codes (e.g. "4401") flow through verbatim from `SaldeoError.code`.
+
+ERROR_EMPTY_INPUT: Final[str] = "EMPTY_INPUT"
+"""Tool short-circuited because a required list argument was empty."""
+
+ERROR_INVALID_INPUT: Final[str] = "INVALID_INPUT"
+"""Builder-level invariant violation (e.g. attachment-count mismatch)."""
+
+ERROR_MISSING_CRITERIA: Final[str] = "MISSING_CRITERIA"
+"""Search/lookup tool called without enough criteria to be specific."""
+
+ERROR_TOO_MANY_DOCUMENTS: Final[str] = "TOO_MANY_DOCUMENTS"
+"""Batch endpoint asked to process more than its per-request cap."""
+
+ERROR_ATTACHMENT_NOT_FOUND: Final[str] = "ATTACHMENT_NOT_FOUND"
+"""``Attachment.path`` does not exist on disk."""
+
+ERROR_ATTACHMENT_PERMISSION_DENIED: Final[str] = "ATTACHMENT_PERMISSION_DENIED"
+"""``Attachment.path`` exists but isn't readable by the server process."""
 
 
 class ItemError(BaseModel):

@@ -12,12 +12,14 @@ from ..models import (
     ErrorResponse,
     MergeResult,
 )
+from . import endpoints
 from ._runtime import (
     get_client,
     mcp,
+    merge_call,
     parse_collection,
+    require_nonempty,
     saldeo_call,
-    summarize_merge,
 )
 
 
@@ -31,7 +33,7 @@ def list_contractors(company_program_id: str) -> ContractorList | ErrorResponse:
             Get one from list_companies first if you don't know it.
     """
     root = get_client().get(
-        "/api/xml/1.23/contractor/list",
+        endpoints.CONTRACTOR_LIST,
         query={"company_program_id": company_program_id},
     )
     contractors = parse_collection(root, "CONTRACTORS", "CONTRACTOR", Contractor.from_xml)
@@ -40,6 +42,7 @@ def list_contractors(company_program_id: str) -> ContractorList | ErrorResponse:
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("contractors", message="At least one contractor is required.")
 def merge_contractors(
     company_program_id: str,
     contractors: list[ContractorInput],
@@ -66,18 +69,13 @@ def merge_contractors(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
-    if not contractors:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one contractor is required.",
-        )
     xml = _build_contractor_merge_xml(contractors)
-    root = get_client().post_command(
-        "/api/xml/1.23/contractor/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.CONTRACTOR_MERGE,
+        xml,
+        total=len(contractors),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(contractors))
 
 
 def _build_contractor_merge_xml(contractors: list[ContractorInput]) -> str:

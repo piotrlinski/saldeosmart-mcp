@@ -50,9 +50,7 @@ def test_error_response_includes_per_item_details() -> None:
         )
     )
     assert resp.details == [
-        ItemError(
-            status="NOT_VALID", path="DOCUMENT_ID", message="must be unique", item_id="1"
-        ),
+        ItemError(status="NOT_VALID", path="DOCUMENT_ID", message="must be unique", item_id="1"),
         ItemError(status="ERROR", path="", message="not found", item_id="2"),
     ]
 

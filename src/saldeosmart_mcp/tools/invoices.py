@@ -13,8 +13,9 @@ from ..models import (
     InvoiceList,
     MergeResult,
 )
+from . import endpoints
 from ._builders import build_folder_xml
-from ._runtime import get_client, mcp, parse_collection, saldeo_call, summarize_merge
+from ._runtime import get_client, mcp, merge_call, parse_collection, saldeo_call
 
 
 @mcp.tool
@@ -26,7 +27,7 @@ def list_invoices(company_program_id: str) -> InvoiceList | ErrorResponse:
     not OCR-processed cost documents — for those use list_documents.
     """
     root = get_client().get(
-        "/api/xml/1.20/invoice/list",
+        endpoints.INVOICE_LIST,
         query={"company_program_id": company_program_id, "policy": "SALDEO"},
     )
     # Invoice XML structure overlaps with Document; reuse the parser until
@@ -49,7 +50,7 @@ def get_invoice_id_list(
     """
     xml = build_folder_xml(year, month)
     root = get_client().post_command(
-        "/api/xml/3.0/invoice/getidlist",
+        endpoints.INVOICE_GET_ID_LIST,
         xml_command=xml,
         query={"company_program_id": company_program_id},
     )
@@ -87,7 +88,7 @@ def get_invoices_by_id(
         corrective_pre_invoices=corrective_pre_invoices,
     )
     root = get_client().post_command(
-        "/api/xml/3.0/invoice/listbyid",
+        endpoints.INVOICE_LIST_BY_ID,
         xml_command=xml,
         query={"company_program_id": company_program_id},
     )
@@ -110,12 +111,12 @@ def add_invoice(
     invoice data.
     """
     xml = _build_invoice_add_xml(invoice)
-    root = get_client().post_command(
-        "/api/xml/3.1/invoice/add",
-        xml_command=xml,
+    return merge_call(
+        endpoints.INVOICE_ADD,
+        xml,
+        total=1,
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=1)
 
 
 def _build_invoice_add_xml(invoice: InvoiceAddInput) -> str:

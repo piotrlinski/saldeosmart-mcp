@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from .accounting_close import CloseAttachmentInput
+from .common import Month, Year
 
 
 class FinancialBalanceVATInput(BaseModel):
@@ -23,8 +24,8 @@ class FinancialBalanceMergeInput(BaseModel):
     attaching the source spreadsheet or scanned report.
     """
 
-    year: int
-    month: int
+    year: Year
+    month: Month
     income_month: str | None = None
     cost_month: str | None = None
     vat: FinancialBalanceVATInput | None = None

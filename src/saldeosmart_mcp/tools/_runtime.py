@@ -25,6 +25,10 @@ from pydantic import ValidationError
 
 from ..config import SaldeoConfig
 from ..errors import (
+    ERROR_ATTACHMENT_NOT_FOUND,
+    ERROR_ATTACHMENT_PERMISSION_DENIED,
+    ERROR_EMPTY_INPUT,
+    ERROR_INVALID_INPUT,
     ErrorResponse,
     MergeResult,
     SaldeoError,
@@ -104,6 +108,43 @@ def close_client() -> None:
 # ---- Decorators ------------------------------------------------------------------
 
 
+def require_nonempty(
+    field: str,
+    *,
+    message: str,
+) -> Callable[[Callable[_P, _T]], Callable[_P, _T | ErrorResponse]]:
+    """Short-circuit a tool when a named (possibly nested) field is empty.
+
+    ``field`` is the name of a keyword argument on the wrapped tool, or a
+    dotted path into a Pydantic model passed as a kwarg (e.g.
+    ``"declarations.taxes"``). When the resolved value is empty/falsy the
+    decorator returns ``ErrorResponse(error="EMPTY_INPUT", message=...)``
+    without invoking the tool body — saves the network round-trip and
+    gives callers a deterministic error code.
+
+    Stack BELOW ``@saldeo_call`` so this decorator runs first; the
+    short-circuit returns an ``ErrorResponse`` directly, bypassing the
+    SaldeoError handler.
+    """
+    parts = field.split(".")
+
+    def decorator(fn: Callable[_P, _T]) -> Callable[_P, _T | ErrorResponse]:
+        @functools.wraps(fn)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T | ErrorResponse:
+            value: object = kwargs.get(parts[0])
+            for attr in parts[1:]:
+                if value is None:
+                    break
+                value = getattr(value, attr)
+            if value is not None and not value:
+                return ErrorResponse(error=ERROR_EMPTY_INPUT, message=message)
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
 def saldeo_call(fn: Callable[_P, _T]) -> Callable[_P, _T | ErrorResponse]:
     """Decorator: turn a SaldeoError raised inside a tool into ErrorResponse.
 
@@ -124,9 +165,14 @@ def saldeo_call(fn: Callable[_P, _T]) -> Callable[_P, _T | ErrorResponse]:
                 details=list(e.details),
             )
         except FileNotFoundError as e:
-            return ErrorResponse(error="ATTACHMENT_NOT_FOUND", message=str(e))
+            return ErrorResponse(error=ERROR_ATTACHMENT_NOT_FOUND, message=str(e))
         except PermissionError as e:
-            return ErrorResponse(error="ATTACHMENT_PERMISSION_DENIED", message=str(e))
+            return ErrorResponse(error=ERROR_ATTACHMENT_PERMISSION_DENIED, message=str(e))
+        except ValueError as e:
+            # Builders raise ValueError when an internal invariant on the input
+            # batch fails (e.g. attachment-count mismatch in document/import).
+            # Surface as a structured error rather than a stack trace.
+            return ErrorResponse(error=ERROR_INVALID_INPUT, message=str(e))
 
     return wrapper
 
@@ -145,6 +191,32 @@ def parse_collection(
     if container is None:
         return []
     return [parser(el) for el in container.findall(item_tag)]
+
+
+def merge_call(
+    endpoint: str,
+    xml_command: str,
+    *,
+    total: int,
+    query: dict[str, str] | None = None,
+    extra_form: dict[str, str] | None = None,
+) -> MergeResult:
+    """POST a merge/update/delete batch and summarize the per-item result.
+
+    Collapses the universal ``post_command(...) → summarize_merge(...)``
+    pair that every write tool in this package would otherwise hand-write.
+    Use this for any operation that returns a Saldeo merge envelope (per
+    spec: ``STATUS=OK`` at the top, per-item statuses below). Reads that
+    POST a search criteria block but parse a typed collection in response
+    keep using ``get_client().post_command(...)`` directly.
+    """
+    root = get_client().post_command(
+        endpoint,
+        xml_command=xml_command,
+        query=query,
+        extra_form=extra_form,
+    )
+    return summarize_merge(root, total=total)
 
 
 def summarize_merge(root: ET.Element, *, total: int) -> MergeResult:

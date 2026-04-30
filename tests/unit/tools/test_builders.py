@@ -81,6 +81,20 @@ from saldeosmart_mcp.tools._builders import (
     build_folder_xml,
     build_simple_merge_xml,
 )
+from saldeosmart_mcp.tools._documents_builders import (
+    build_document_add_recognize_xml,
+    build_document_add_xml,
+    build_document_correct_xml,
+    build_document_delete_xml,
+    build_document_dimension_xml,
+    build_document_id_groups_xml,
+    build_document_import_xml,
+    build_document_sync_xml,
+    build_document_update_xml,
+    build_ocr_id_list_xml,
+    build_recognize_xml,
+    build_search_xml,
+)
 from saldeosmart_mcp.tools._runtime import summarize_merge
 from saldeosmart_mcp.tools.accounting_close import (
     _build_assurance_renew_xml,
@@ -96,20 +110,6 @@ from saldeosmart_mcp.tools.companies import (
 )
 from saldeosmart_mcp.tools.contractors import _build_contractor_merge_xml
 from saldeosmart_mcp.tools.dimensions import _build_dimension_merge_xml
-from saldeosmart_mcp.tools.documents import (
-    _build_document_add_recognize_xml,
-    _build_document_add_xml,
-    _build_document_correct_xml,
-    _build_document_delete_xml,
-    _build_document_dimension_xml,
-    _build_document_id_groups_xml,
-    _build_document_import_xml,
-    _build_document_sync_xml,
-    _build_document_update_xml,
-    _build_ocr_id_list_xml,
-    _build_recognize_xml,
-    _build_search_xml,
-)
 from saldeosmart_mcp.tools.financial_balance import _build_financial_balance_merge_xml
 from saldeosmart_mcp.tools.invoices import (
     _build_invoice_add_xml,
@@ -121,13 +121,13 @@ from saldeosmart_mcp.tools.personnel import (
     _build_personnel_list_xml,
 )
 
-# ---- _build_search_xml -----------------------------------------------------------
+# ---- build_search_xml -----------------------------------------------------------
 
 
 def test_build_search_xml_uses_search_policy_tag() -> None:
     """Saldeo expects <SEARCH_POLICY>, not <POLICY>. Wrong tag returns
     `4401 No SEARCH_POLICY found in file` from the live API."""
-    xml = _build_search_xml(document_id=123, number=None, nip=None, guid=None)
+    xml = build_search_xml(document_id=123, number=None, nip=None, guid=None)
     root = ET.fromstring(xml)
     assert root.find("SEARCH_POLICY") is not None
     assert root.find("SEARCH_POLICY").text == "BY_FIELDS"  # type: ignore[union-attr]
@@ -135,7 +135,7 @@ def test_build_search_xml_uses_search_policy_tag() -> None:
 
 
 def test_build_search_xml_only_includes_provided_fields() -> None:
-    xml = _build_search_xml(document_id=None, number="FV/1/2024", nip=None, guid=None)
+    xml = build_search_xml(document_id=None, number="FV/1/2024", nip=None, guid=None)
     root = ET.fromstring(xml)
     fields = root.find("FIELDS")
     assert fields is not None
@@ -147,9 +147,7 @@ def test_build_search_xml_only_includes_provided_fields() -> None:
 
 def test_build_search_xml_escapes_special_characters() -> None:
     """ElementTree must escape angle brackets, ampersands, etc. in field values."""
-    xml = _build_search_xml(
-        document_id=None, number="A&B<X>", nip=None, guid=None
-    )
+    xml = build_search_xml(document_id=None, number="A&B<X>", nip=None, guid=None)
     # If escaping failed, fromstring would raise.
     root = ET.fromstring(xml)
     assert root.find("FIELDS/NUMBER").text == "A&B<X>"  # type: ignore[union-attr]
@@ -158,7 +156,7 @@ def test_build_search_xml_escapes_special_characters() -> None:
 # ---- 3.0 paginated id-list / listbyid builders -----------------------------------
 
 
-def testbuild_folder_xml_emits_year_and_month() -> None:
+def test_build_folder_xml_emits_year_and_month() -> None:
     root = ET.fromstring(build_folder_xml(year=2024, month=3))
     assert root.find("FOLDER/YEAR").text == "2024"  # type: ignore[union-attr]
     assert root.find("FOLDER/MONTH").text == "3"  # type: ignore[union-attr]
@@ -168,7 +166,7 @@ def test_build_document_id_groups_xml_omits_empty_buckets() -> None:
     """Empty / None buckets must not appear in the request — Saldeo treats
     a present-but-empty container as "ask me about that bucket too" which
     breaks the targeted-fetch semantics ``listbyid`` is built around."""
-    xml = _build_document_id_groups_xml(
+    xml = build_document_id_groups_xml(
         contracts=[1, 2],
         invoices_cost=None,
         invoices_internal=None,
@@ -195,13 +193,16 @@ def test_build_invoice_id_groups_xml_uses_correct_leaf_tags() -> None:
     assert root.find("INVOICES/INVOICE_ID").text == "10"  # type: ignore[union-attr]
     assert root.find("CORRECTIVE_INVOICES/CORRECTIVE_INVOICE_ID").text == "11"  # type: ignore[union-attr]
     assert root.find("PRE_INVOICES/PRE_INVOICE_ID").text == "12"  # type: ignore[union-attr]
-    assert root.find(  # type: ignore[union-attr]
-        "CORRECTIVE_PRE_INVOICES/CORRECTIVE_PRE_INVOICE_ID"
-    ).text == "13"
+    assert (
+        root.find(  # type: ignore[union-attr]
+            "CORRECTIVE_PRE_INVOICES/CORRECTIVE_PRE_INVOICE_ID"
+        ).text
+        == "13"
+    )
 
 
 def test_build_ocr_id_list_xml_emits_one_entry_per_id() -> None:
-    xml = _build_ocr_id_list_xml([1, 2, 3])
+    xml = build_ocr_id_list_xml([1, 2, 3])
     root = ET.fromstring(xml)
     ids = [e.text for e in root.findall("OCR_ID_LIST/OCR_ORIGIN_ID")]
     assert ids == ["1", "2", "3"]
@@ -211,9 +212,7 @@ def test_build_ocr_id_list_xml_emits_one_entry_per_id() -> None:
 
 
 def test_build_personnel_list_xml_picks_employee_id_when_set() -> None:
-    xml = _build_personnel_list_xml(
-        employee_id=42, year=None, month=None, only_remaining=False
-    )
+    xml = _build_personnel_list_xml(employee_id=42, year=None, month=None, only_remaining=False)
     root = ET.fromstring(xml)
     pd = root.find("PERSONNEL_DOCUMENT")
     assert pd.find("EMPLOYEE_ID").text == "42"  # type: ignore[union-attr]
@@ -223,9 +222,7 @@ def test_build_personnel_list_xml_picks_employee_id_when_set() -> None:
 
 
 def test_build_personnel_list_xml_picks_remaining_when_requested() -> None:
-    xml = _build_personnel_list_xml(
-        employee_id=None, year=None, month=None, only_remaining=True
-    )
+    xml = _build_personnel_list_xml(employee_id=None, year=None, month=None, only_remaining=True)
     root = ET.fromstring(xml)
     pd = root.find("PERSONNEL_DOCUMENT")
     assert pd.find("ALL_REMAINING_DOCUMENTS").text == "true"  # type: ignore[union-attr]
@@ -234,9 +231,7 @@ def test_build_personnel_list_xml_picks_remaining_when_requested() -> None:
 
 
 def test_build_personnel_list_xml_default_is_all_documents() -> None:
-    xml = _build_personnel_list_xml(
-        employee_id=None, year=2024, month=3, only_remaining=False
-    )
+    xml = _build_personnel_list_xml(employee_id=None, year=2024, month=3, only_remaining=False)
     root = ET.fromstring(xml)
     pd = root.find("PERSONNEL_DOCUMENT")
     assert pd.find("ALL_PERSONNEL_DOCUMENTS").text == "true"  # type: ignore[union-attr]
@@ -247,7 +242,7 @@ def test_build_personnel_list_xml_default_is_all_documents() -> None:
 # ---- merge / write XML builders --------------------------------------------------
 
 
-def testbuild_simple_merge_xml_skips_none_fields() -> None:
+def test_build_simple_merge_xml_skips_none_fields() -> None:
     items = [CategoryInput(name="Office", category_program_id="CAT_OFC")]
     xml = build_simple_merge_xml(
         container_tag="CATEGORIES",
@@ -299,9 +294,7 @@ def test_build_contractor_merge_xml_serializes_nested_lists() -> None:
 def test_build_contractor_merge_xml_omits_empty_collections() -> None:
     """Empty bank_accounts/emails lists must not produce empty containers
     — Saldeo would interpret <BANK_ACCOUNTS/> as 'replace with no accounts'."""
-    xml = _build_contractor_merge_xml(
-        [ContractorInput(short_name="A", full_name="A Sp. z o.o.")]
-    )
+    xml = _build_contractor_merge_xml([ContractorInput(short_name="A", full_name="A Sp. z o.o.")])
     root = ET.fromstring(xml)
     contractor = root.find("CONTRACTORS/CONTRACTOR")
     assert contractor.find("BANK_ACCOUNTS") is None  # type: ignore[union-attr]
@@ -311,7 +304,9 @@ def test_build_contractor_merge_xml_omits_empty_collections() -> None:
 def test_build_dimension_merge_xml_emits_values_only_for_enum() -> None:
     dims = [
         DimensionInput(
-            code="VAT_GROUP", name="VAT group", type="ENUM",
+            code="VAT_GROUP",
+            name="VAT group",
+            type="ENUM",
             values=[
                 DimensionValueInput(code="A", description="Group A"),
                 DimensionValueInput(code="B"),
@@ -397,7 +392,7 @@ def test_build_document_dimension_xml_nests_dimensions_per_document() -> None:
             ],
         )
     ]
-    xml = _build_document_dimension_xml(items)
+    xml = build_document_dimension_xml(items)
     root = ET.fromstring(xml)
     doc = root.find("DOCUMENT_DIMENSIONS/DOCUMENT_DIMENSION")
     assert doc.find("DOCUMENT_ID").text == "42"  # type: ignore[union-attr]
@@ -407,11 +402,9 @@ def test_build_document_dimension_xml_nests_dimensions_per_document() -> None:
 def test_build_document_update_xml_only_emits_set_fields() -> None:
     docs = [
         DocumentUpdateInput(document_id=10, number="FS-1"),
-        DocumentUpdateInput(
-            document_id=20, contractor_program_id="ERP-1", self_learning=True
-        ),
+        DocumentUpdateInput(document_id=20, contractor_program_id="ERP-1", self_learning=True),
     ]
-    xml = _build_document_update_xml(docs)
+    xml = build_document_update_xml(docs)
     root = ET.fromstring(xml)
     documents = root.findall("DOCUMENTS/DOCUMENT")
     assert documents[0].find("NUMBER").text == "FS-1"  # type: ignore[union-attr]
@@ -421,7 +414,7 @@ def test_build_document_update_xml_only_emits_set_fields() -> None:
 
 
 def test_build_document_delete_xml_lists_ids() -> None:
-    xml = _build_document_delete_xml([1, 2, 3])
+    xml = build_document_delete_xml([1, 2, 3])
     root = ET.fromstring(xml)
     ids = [e.text for e in root.findall("DOCUMENT_DELETE_IDS/DOCUMENT_DELETE_ID")]
     assert ids == ["1", "2", "3"]
@@ -430,11 +423,13 @@ def test_build_document_delete_xml_lists_ids() -> None:
 def test_build_recognize_xml_passes_split_options() -> None:
     docs = [
         RecognizeOptionInput(
-            document_id=42, split_mode="AUTO_TWO_SIDED",
-            no_rotate=True, overwrite_data=False,
+            document_id=42,
+            split_mode="AUTO_TWO_SIDED",
+            no_rotate=True,
+            overwrite_data=False,
         )
     ]
-    xml = _build_recognize_xml(docs)
+    xml = build_recognize_xml(docs)
     root = ET.fromstring(xml)
     doc = root.find("DOCUMENTS/DOCUMENT")
     assert doc.find("SPLIT_MODE").text == "AUTO_TWO_SIDED"  # type: ignore[union-attr]
@@ -475,7 +470,7 @@ def test_document_sync_emits_elements_in_xsd_order() -> None:
         issue_date="2015-10-25",
         saldeo_guid="00010001-0001-3000-934a-000000000020",
     )
-    root = ET.fromstring(_build_document_sync_xml([sync]))
+    root = ET.fromstring(build_document_sync_xml([sync]))
     sync_el = root.find("DOCUMENT_SYNCS/DOCUMENT_SYNC")
     assert sync_el is not None
     actual_order = [child.tag for child in sync_el]
@@ -492,7 +487,7 @@ def test_document_sync_omits_unset_optional_fields() -> None:
         numbering_type="NT",
         account_document_number="ADN",
     )
-    root = ET.fromstring(_build_document_sync_xml([sync]))
+    root = ET.fromstring(build_document_sync_xml([sync]))
     sync_el = root.find("DOCUMENT_SYNCS/DOCUMENT_SYNC")
     assert sync_el is not None
     tags = {child.tag for child in sync_el}
@@ -514,7 +509,7 @@ def test_build_document_sync_xml_emits_only_provided_keys() -> None:
             document_status="BOOKED",
         )
     ]
-    xml = _build_document_sync_xml(syncs)
+    xml = build_document_sync_xml(syncs)
     root = ET.fromstring(xml)
     sync = root.find("DOCUMENT_SYNCS/DOCUMENT_SYNC")
     assert sync.find("SALDEO_ID").text == "D20"  # type: ignore[union-attr]
@@ -601,9 +596,14 @@ def test_typed_inputs_sanity_check_register_and_method_and_payment() -> None:
     )
     assert ET.fromstring(reg_xml).find("REGISTERS/REGISTER/NAME").text == "VAT-S"  # type: ignore[union-attr]
     assert ET.fromstring(pm_xml).find("PAYMENT_METHODS/PAYMENT_METHOD/NAME").text == "Cash"  # type: ignore[union-attr]
-    assert ET.fromstring(desc_xml).find(  # type: ignore[union-attr]
-        "DESCRIPTIONS/DESCRIPTION/VALUE"
-    ).text == "goods purchase"
+    assert (
+        ET.fromstring(desc_xml)
+        .find(  # type: ignore[union-attr]
+            "DESCRIPTIONS/DESCRIPTION/VALUE"
+        )
+        .text
+        == "goods purchase"
+    )
 
 
 # ---- _build_company_synchronize_xml ---------------------------------------------
@@ -664,8 +664,9 @@ def test_employee_add_emits_contracts_in_order() -> None:
                 first_name="Joe",
                 last_name="Doe",
                 contracts=[
-                    EmployeeContractInput(type="UMOWA_O_PRACE", position="Manager",
-                                          end_date="2026-12-31"),
+                    EmployeeContractInput(
+                        type="UMOWA_O_PRACE", position="Manager", end_date="2026-12-31"
+                    ),
                     EmployeeContractInput(type="UMOWA_ZLECENIE"),
                 ],
             )
@@ -718,14 +719,14 @@ def test_financial_balance_merge_omits_optional_blocks() -> None:
     assert fb.find("ATTACHMENTS") is None
 
 
-# ---- _build_document_add_xml ----------------------------------------------------
+# ---- build_document_add_xml ----------------------------------------------------
 
 
 def test_document_add_emits_year_month_attmnt_in_order() -> None:
     """document.add: <DOCUMENT> has YEAR, MONTH, ATTMNT, ATTMNT_NAME in that order."""
     docs = [DocumentAddInput(year=2026, month=4, attachment=Attachment(path="/x/inv.pdf"))]
     prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="inv.pdf")]
-    xml = _build_document_add_xml(docs, prepared)
+    xml = build_document_add_xml(docs, prepared)
     el = ET.fromstring(xml).find("DOCUMENTS/DOCUMENT")
     assert el is not None
     assert [c.tag for c in el] == ["YEAR", "MONTH", "ATTMNT", "ATTMNT_NAME"]
@@ -779,14 +780,14 @@ def test_personnel_document_add_keeps_xsd_element_order() -> None:
     assert el.findtext("MARK_WHEN_DATE_OF_DUTY_EXPIRED") == "true"
 
 
-# ---- _build_document_add_recognize_xml ------------------------------------------
+# ---- build_document_add_recognize_xml ------------------------------------------
 
 
 def test_document_add_recognize_emits_required_fields_only_when_set() -> None:
     """document.add_recognize: VAT_NUMBER + SPLIT_MODE always present;
     DOCUMENT_TYPE / NO_ROTATE only when caller set them. No <ATTMNT> tag —
     binary file goes through the attmnt_1 form field."""
-    xml = _build_document_add_recognize_xml(
+    xml = build_document_add_recognize_xml(
         DocumentAddRecognizeInput(
             attachment=Attachment(path="/x/inv.pdf"),
             vat_number="1234567890",
@@ -804,11 +805,11 @@ def test_document_add_recognize_emits_required_fields_only_when_set() -> None:
     assert el.find("ATTMNT") is None
 
 
-# ---- _build_document_correct_xml ------------------------------------------------
+# ---- build_document_correct_xml ------------------------------------------------
 
 
 def test_document_correct_skips_contractor_when_omitted() -> None:
-    xml = _build_document_correct_xml(
+    xml = build_document_correct_xml(
         [DocumentCorrectInput(document_id=42, number="FV-2026-1", self_learning=True)]
     )
     el = ET.fromstring(xml).find("DOCUMENTS/DOCUMENT")
@@ -820,7 +821,7 @@ def test_document_correct_skips_contractor_when_omitted() -> None:
 
 
 def test_document_correct_emits_full_contractor_block() -> None:
-    xml = _build_document_correct_xml(
+    xml = build_document_correct_xml(
         [
             DocumentCorrectInput(
                 document_id=42,
@@ -850,7 +851,9 @@ def test_document_correct_emits_full_contractor_block() -> None:
 def test_personnel_document_add_minimum_fields() -> None:
     docs = [
         PersonnelDocumentAddInput(
-            year=2026, month=4, document_type="OTHER",
+            year=2026,
+            month=4,
+            document_type="OTHER",
             attachment=Attachment(path="/x/file.pdf"),
         )
     ]
@@ -907,7 +910,8 @@ def test_declaration_merge_threads_attachments_per_tax() -> None:
                 declaration_program_id="A",
                 attachments=[
                     CloseAttachmentInput(
-                        type="DECLARATION", name="a1",
+                        type="DECLARATION",
+                        name="a1",
                         attachment=Attachment(path="/x/a1.pdf"),
                     ),
                 ],
@@ -916,11 +920,13 @@ def test_declaration_merge_threads_attachments_per_tax() -> None:
                 declaration_program_id="B",
                 attachments=[
                     CloseAttachmentInput(
-                        type="REPORT", name="b1",
+                        type="REPORT",
+                        name="b1",
                         attachment=Attachment(path="/x/b1.pdf"),
                     ),
                     CloseAttachmentInput(
-                        type="REPORT", name="b2",
+                        type="REPORT",
+                        name="b2",
                         attachment=Attachment(path="/x/b2.pdf"),
                     ),
                 ],
@@ -1051,7 +1057,7 @@ def test_assurance_renew_partner_variant_emits_underpayment() -> None:
     assert details.findtext("ZUS_UNDERPAYMENT") == "50.00"
 
 
-# ---- _build_document_import_xml -------------------------------------------------
+# ---- build_document_import_xml -------------------------------------------------
 
 
 def test_document_import_emits_minimal_required_fields() -> None:
@@ -1061,15 +1067,12 @@ def test_document_import_emits_minimal_required_fields() -> None:
         DocumentImportInput(
             year=2026,
             month=4,
-            document_type=DocumentImportTypeInput(short_name="DS",
-                                                  model_type="INVOICE_SALES"),
+            document_type=DocumentImportTypeInput(short_name="DS", model_type="INVOICE_SALES"),
             attachment=Attachment(path="/x/inv.pdf"),
         )
     ]
     prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="inv.pdf")]
-    el = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
-        "DOCUMENTS/DOCUMENT"
-    )
+    el = ET.fromstring(build_document_import_xml(docs, prepared)).find("DOCUMENTS/DOCUMENT")
     assert el is not None
     leading = [c.tag for c in el][:5]
     assert leading == ["ATTMNT", "ATTMNT_NAME", "YEAR", "MONTH", "DOCUMENT_TYPE"]
@@ -1088,7 +1091,7 @@ def test_document_import_picks_id_branch_for_document_type() -> None:
         )
     ]
     prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="a.pdf")]
-    type_el = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
+    type_el = ET.fromstring(build_document_import_xml(docs, prepared)).find(
         "DOCUMENTS/DOCUMENT/DOCUMENT_TYPE"
     )
     assert type_el is not None
@@ -1101,12 +1104,9 @@ def test_document_import_emits_currency_dimensions_vat_block() -> None:
         DocumentImportInput(
             year=2026,
             month=4,
-            document_type=DocumentImportTypeInput(short_name="FK",
-                                                  model_type="INVOICE_COST"),
+            document_type=DocumentImportTypeInput(short_name="FK", model_type="INVOICE_COST"),
             attachment=Attachment(path="/x/a.pdf"),
-            currency=DocumentImportCurrencyInput(
-                iso4217="EUR", date="2026-04-01", rate="4.3000"
-            ),
+            currency=DocumentImportCurrencyInput(iso4217="EUR", date="2026-04-01", rate="4.3000"),
             dimensions=[
                 DocumentImportDimensionInput(name="Cost center", value="OPS"),
             ],
@@ -1116,17 +1116,18 @@ def test_document_import_emits_currency_dimensions_vat_block() -> None:
                 ],
                 items=[
                     DocumentImportVATItemInput(
-                        rate="23", netto="100.00", vat="23.00",
-                        category="Materials", description="Office supplies",
+                        rate="23",
+                        netto="100.00",
+                        vat="23.00",
+                        category="Materials",
+                        description="Office supplies",
                     ),
                 ],
             ),
         )
     ]
     prepared = [PreparedAttachment(key="1", form_key="attmnt_1", name="a.pdf")]
-    doc = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
-        "DOCUMENTS/DOCUMENT"
-    )
+    doc = ET.fromstring(build_document_import_xml(docs, prepared)).find("DOCUMENTS/DOCUMENT")
     assert doc is not None
     assert doc.findtext("CURRENCY/CURRENCY_ISO4217") == "EUR"
     assert doc.findtext("CURRENCY/CURRENCY_RATE") == "4.3000"
@@ -1161,9 +1162,7 @@ def test_document_import_threads_supporting_attachments_after_source_file() -> N
         PreparedAttachment(key="2", form_key="attmnt_2", name="extra1.pdf"),
         PreparedAttachment(key="3", form_key="attmnt_3", name="extra2.pdf"),
     ]
-    doc = ET.fromstring(_build_document_import_xml(docs, prepared)).find(
-        "DOCUMENTS/DOCUMENT"
-    )
+    doc = ET.fromstring(build_document_import_xml(docs, prepared)).find("DOCUMENTS/DOCUMENT")
     assert doc is not None
     assert doc.findtext("ATTMNT") == "1"
     assert doc.findtext("ATTMNT_NAME") == "main.pdf"
@@ -1187,8 +1186,11 @@ def test_invoice_add_emits_required_fields_and_at_least_one_item() -> None:
         payment_type="TRANSFER",
         items=[
             InvoiceAddItemInput(
-                name="Office Chair", amount="10", unit="pieces",
-                unit_value="159.99", rate="23",
+                name="Office Chair",
+                amount="10",
+                unit="pieces",
+                unit_value="159.99",
+                rate="23",
             ),
         ],
     )
@@ -1213,13 +1215,9 @@ def test_invoice_add_choice_picks_sale_date_range_over_sale_date() -> None:
         purchaser_contractor_id=1,
         currency_iso4217="PLN",
         payment_type="CASH",
-        items=[InvoiceAddItemInput(
-            name="Service", amount="1", unit="ea", unit_value="100"
-        )],
+        items=[InvoiceAddItemInput(name="Service", amount="1", unit="ea", unit_value="100")],
         sale_date="2026-04-30",
-        sale_date_range=InvoiceAddSaleDateRangeInput(
-            from_date="2026-04-01", to_date="2026-04-30"
-        ),
+        sale_date_range=InvoiceAddSaleDateRangeInput(from_date="2026-04-01", to_date="2026-04-30"),
     )
     el = ET.fromstring(_build_invoice_add_xml(invoice)).find("INVOICE")
     assert el is not None
@@ -1238,7 +1236,10 @@ def test_invoice_add_emits_discount_payments_and_vehicle_blocks() -> None:
         payment_type="TRANSFER",
         items=[
             InvoiceAddItemInput(
-                name="Conf Table", amount="3", unit="pieces", unit_value="899.99",
+                name="Conf Table",
+                amount="3",
+                unit="pieces",
+                unit_value="899.99",
                 discount=InvoiceAddDiscountInput(type="PERCENTAGE", value="10"),
                 rate="ZW",
             ),
@@ -1250,7 +1251,9 @@ def test_invoice_add_emits_discount_payments_and_vehicle_blocks() -> None:
             InvoiceAddPaymentInput(payment_amount="50", payment_date="2026-05-15"),
         ],
         new_transport_vehicle=InvoiceAddNewTransportVehicleInput(
-            vehicle_type="LAND", admission_date="2026-04-01", usage_metrics=5000,
+            vehicle_type="LAND",
+            admission_date="2026-04-01",
+            usage_metrics=5000,
         ),
     )
     el = ET.fromstring(_build_invoice_add_xml(invoice)).find("INVOICE")

@@ -78,9 +78,7 @@ class RequestSigner:
         encoded = saldeo_url_encode(base_string)
         # usedforsecurity=False: spec mandates MD5 — flag prevents FIPS/Bandit
         # complaints without sacrificing the algorithm Saldeo requires.
-        return hashlib.md5(
-            (encoded + api_token).encode("utf-8"), usedforsecurity=False
-        ).hexdigest()
+        return hashlib.md5((encoded + api_token).encode("utf-8"), usedforsecurity=False).hexdigest()
 
     @staticmethod
     def encode_command(xml: str) -> str:

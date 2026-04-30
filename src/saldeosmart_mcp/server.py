@@ -63,10 +63,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base-url",
         default=_env_default("BASE_URL", DEFAULT_BASE_URL),
-        help=(
-            "SaldeoSMART base URL. Falls back to $SALDEO_BASE_URL, then "
-            f"to {DEFAULT_BASE_URL}."
-        ),
+        help=(f"SaldeoSMART base URL. Falls back to $SALDEO_BASE_URL, then to {DEFAULT_BASE_URL}."),
     )
     return parser
 

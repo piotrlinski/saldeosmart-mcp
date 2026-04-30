@@ -16,11 +16,32 @@ Building blocks:
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Protocol
 from xml.etree import ElementTree as ET
 
 from ..http.attachments import PreparedAttachment
 from ..http.xml import set_text
+
+
+class _CloseAttachmentLike(Protocol):
+    """Structural type that close-attachment input models conform to.
+
+    Lets ``append_close_attachments`` stay generic across
+    ``CloseAttachmentInput`` (declarations, assurances) and any future
+    look-alike without importing those models from this generic helper.
+
+    Declared as ``@property`` so subtypes can narrow ``type`` to a
+    ``Literal`` without breaking Protocol invariance.
+    """
+
+    @property
+    def type(self) -> str: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def description(self) -> str | None: ...
+    @property
+    def short_description(self) -> str | None: ...
 
 
 def build_folder_xml(year: int, month: int) -> str:
@@ -74,7 +95,7 @@ def build_simple_merge_xml(
 
 def append_close_attachments(
     parent: ET.Element,
-    attachments: Sequence[Any],
+    attachments: Sequence[_CloseAttachmentLike],
     prepared: list[PreparedAttachment],
 ) -> None:
     """Append ``<ATTACHMENTS><ATTACHMENT>...</ATTACHMENT></ATTACHMENTS>``.
@@ -85,11 +106,10 @@ def append_close_attachments(
     slices the global ``prepare_attachments`` output to match each item's
     attachments list.
 
-    Each entry in ``attachments`` is duck-typed: it must expose ``type``,
-    ``name``, ``description``, and ``short_description``. The shape lives
-    in ``models.accounting_close.CloseAttachmentInput`` — typed as
-    ``Sequence[Any]`` here only to keep this generic helper from
-    importing the specific model.
+    The ``Sequence[_CloseAttachmentLike]`` parameter is structurally typed
+    so this helper stays decoupled from any specific input model;
+    ``CloseAttachmentInput`` (declarations, assurances) and any future
+    look-alike with the right attributes both work.
     """
     container = ET.SubElement(parent, "ATTACHMENTS")
     for att, p in zip(attachments, prepared, strict=True):

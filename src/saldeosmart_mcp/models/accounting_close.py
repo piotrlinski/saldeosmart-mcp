@@ -14,7 +14,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from ..http.attachments import Attachment
-from .common import IsoDate
+from .common import IsoDate, Month, Year
 
 # ---- Shared pieces ---------------------------------------------------------------
 
@@ -68,8 +68,8 @@ class DeclarationMergeInput(BaseModel):
     per-tax with ``MERGED`` (existed) or ``CREATED`` (new).
     """
 
-    year: int
-    month: int
+    year: Year
+    month: Month
     taxes: list[DeclarationTaxInput] = Field(default_factory=list, max_length=50)
 
 
@@ -164,6 +164,6 @@ class AssuranceRenewInput(BaseModel):
     ``RENEWED`` (existed) or ``CREATED`` (new).
     """
 
-    year: int
-    month: int
+    year: Year
+    month: Month
     assurances: list[AssuranceItemInput] = Field(default_factory=list, max_length=50)

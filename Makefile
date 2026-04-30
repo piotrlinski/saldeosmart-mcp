@@ -4,7 +4,8 @@
 #   make build       # build the Docker image
 #   make run         # run the server in Docker (stdio)
 #   make test        # run pytest locally (needs uv)
-#   make lint        # ruff + mypy locally (needs uv)
+#   make lint        # ruff (check + format --check) + mypy locally (needs uv)
+#   make format      # apply ruff format + ruff --fix locally (needs uv)
 #   make inspector   # MCP Inspector against the Docker image
 #   make clean       # remove the image
 #
@@ -23,7 +24,7 @@ UV     ?= uv
 ENV_FLAGS = -e SALDEO_USERNAME -e SALDEO_API_TOKEN -e SALDEO_BASE_URL
 
 .DEFAULT_GOAL := help
-.PHONY: help build run inspector test lint sync clean
+.PHONY: help build run inspector test lint format sync clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -46,9 +47,14 @@ sync: ## Install dev dependencies locally with uv
 test: ## Run pytest locally (uv-managed venv)
 	$(UV) run pytest tests/
 
-lint: ## Run ruff + mypy locally
+lint: ## Run ruff (check + format --check) + mypy locally
 	$(UV) run ruff check src tests
+	$(UV) run ruff format --check src tests
 	$(UV) run mypy src
+
+format: ## Apply ruff format + ruff --fix locally
+	$(UV) run ruff format src tests
+	$(UV) run ruff check --fix src tests
 
 clean: ## Remove the Docker image
 	-$(DOCKER) image rm $(IMAGE)

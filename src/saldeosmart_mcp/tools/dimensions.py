@@ -11,11 +11,13 @@ from xml.etree import ElementTree as ET
 
 from ..http.xml import set_text
 from ..models import DimensionInput, ErrorResponse, MergeResult
-from ._runtime import get_client, mcp, saldeo_call, summarize_merge
+from . import endpoints
+from ._runtime import mcp, merge_call, require_nonempty, saldeo_call
 
 
 @mcp.tool
 @saldeo_call
+@require_nonempty("dimensions", message="At least one dimension is required.")
 def merge_dimensions(
     company_program_id: str,
     dimensions: list[DimensionInput],
@@ -38,18 +40,13 @@ def merge_dimensions(
     Returns:
         MergeResult on success, ErrorResponse on failure.
     """
-    if not dimensions:
-        return ErrorResponse(
-            error="EMPTY_INPUT",
-            message="At least one dimension is required.",
-        )
     xml = _build_dimension_merge_xml(dimensions)
-    root = get_client().post_command(
-        "/api/xml/1.12/dimension/merge",
-        xml_command=xml,
+    return merge_call(
+        endpoints.DIMENSION_MERGE,
+        xml,
+        total=len(dimensions),
         query={"company_program_id": company_program_id},
     )
-    return summarize_merge(root, total=len(dimensions))
 
 
 def _build_dimension_merge_xml(dimensions: list[DimensionInput]) -> str:
