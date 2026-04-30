@@ -29,9 +29,9 @@ class SaldeoConfig(BaseSettings):
     api_token=...)`` to build explicitly (e.g. in tests).
     """
 
-    username: str
-    api_token: SecretStr
-    base_url: str = DEFAULT_BASE_URL
+    username: str = Field(min_length=1)
+    api_token: SecretStr = Field(min_length=1)
+    base_url: str = Field(default=DEFAULT_BASE_URL, pattern=r"^https?://")
     timeout: float = Field(default=DEFAULT_TIMEOUT, gt=0)
 
     model_config = SettingsConfigDict(env_prefix="SALDEO_", extra="ignore")

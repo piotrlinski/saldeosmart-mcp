@@ -34,6 +34,11 @@ from .tools._runtime import close_client, init_client, mcp
 logger = logging.getLogger(__name__)
 
 
+def _env_default(name: str, default: str | None = None) -> str | None:
+    """Read ``$SALDEO_<NAME>`` for argparse fallback defaults."""
+    return os.environ.get(f"SALDEO_{name}", default)
+
+
 def _build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="saldeosmart-mcp",
@@ -42,22 +47,22 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             "Speaks MCP over stdio; works with any MCP-aware client."
         ),
     )
-    # default=os.environ.get(...) makes each flag fall back to its env var
+    # default=_env_default(...) makes each flag fall back to its env var
     # without argparse leaking the value via --help (defaults are not shown
     # unless ArgumentDefaultsHelpFormatter is used, which we deliberately don't).
     parser.add_argument(
         "--username",
-        default=os.environ.get("SALDEO_USERNAME"),
+        default=_env_default("USERNAME"),
         help="SaldeoSMART username. Falls back to $SALDEO_USERNAME.",
     )
     parser.add_argument(
         "--api-token",
-        default=os.environ.get("SALDEO_API_TOKEN"),
+        default=_env_default("API_TOKEN"),
         help="SaldeoSMART API token. Falls back to $SALDEO_API_TOKEN.",
     )
     parser.add_argument(
         "--base-url",
-        default=os.environ.get("SALDEO_BASE_URL", DEFAULT_BASE_URL),
+        default=_env_default("BASE_URL", DEFAULT_BASE_URL),
         help=(
             "SaldeoSMART base URL. Falls back to $SALDEO_BASE_URL, then "
             f"to {DEFAULT_BASE_URL}."

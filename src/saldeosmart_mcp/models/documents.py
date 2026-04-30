@@ -15,7 +15,8 @@ from xml.etree import ElementTree as ET
 from pydantic import BaseModel, Field
 
 from ..http.attachments import Attachment
-from ..http.xml import el_bool, el_int, el_text
+from ..http.xml import el_bool, el_int, el_text, parse_int_list
+from .common import IsoDate
 from .contractors import Contractor
 
 DocumentPolicy = Literal["LAST_10_DAYS", "LAST_10_DAYS_OCRED", "SALDEO"]
@@ -143,28 +144,15 @@ class DocumentIdGroups(BaseModel):
 
     @classmethod
     def from_xml(cls, root: ET.Element) -> DocumentIdGroups:
-        def ints(container: str, leaf: str) -> list[int]:
-            container_el = root.find(container)
-            if container_el is None:
-                return []
-            out: list[int] = []
-            for el in container_el.findall(leaf):
-                if el.text:
-                    try:
-                        out.append(int(el.text.strip()))
-                    except ValueError:
-                        continue
-            return out
-
         return cls(
-            contracts=ints("CONTRACTS", "CONTRACT"),
-            invoices_cost=ints("INVOICES_COST", "INVOICE_COST"),
-            invoices_internal=ints("INVOICES_INTERNAL", "INVOICE_INTERNAL"),
-            invoices_material=ints("INVOICES_MATERIAL", "INVOICE_MATERIAL"),
-            invoices_sale=ints("INVOICES_SALE", "INVOICE_SALE"),
-            orders=ints("ORDERS", "ORDER"),
-            writings=ints("WRITINGS", "WRITING"),
-            other_documents=ints("OTHER_DOCUMENTS", "OTHER_DOCUMENT"),
+            contracts=parse_int_list(root, "CONTRACTS", "CONTRACT"),
+            invoices_cost=parse_int_list(root, "INVOICES_COST", "INVOICE_COST"),
+            invoices_internal=parse_int_list(root, "INVOICES_INTERNAL", "INVOICE_INTERNAL"),
+            invoices_material=parse_int_list(root, "INVOICES_MATERIAL", "INVOICE_MATERIAL"),
+            invoices_sale=parse_int_list(root, "INVOICES_SALE", "INVOICE_SALE"),
+            orders=parse_int_list(root, "ORDERS", "ORDER"),
+            writings=parse_int_list(root, "WRITINGS", "WRITING"),
+            other_documents=parse_int_list(root, "OTHER_DOCUMENTS", "OTHER_DOCUMENT"),
         )
 
 
@@ -213,43 +201,37 @@ class DocumentAddRecognizeResult(BaseModel):
     ``status`` is one of ``SENT`` (success), ``NOT_VALID``, ``INSUFFICIENT_FUND``,
     ``ERROR``. ``ocr_origin_id`` is the handle for ``list_recognized_documents``
     once Saldeo finishes the OCR pass.
+
+    Monetary values (``cost``, ``remaining_credits``) are returned as the raw
+    Saldeo string. Every other monetary field in the package follows the same
+    convention — preserve the wire value verbatim and let callers parse to
+    ``Decimal`` when they need arithmetic.
     """
 
     status: str
     status_message: str | None = None
     ocr_origin_id: int | None = None
-    cost: float | None = None
+    cost: str | None = None
     sent_document_count: int | None = None
     sent_page_count: int | None = None
     split_mode: str | None = None
     no_rotate: bool | None = None
-    remaining_credits: float | None = None
+    remaining_credits: str | None = None
 
     @classmethod
     def from_xml(cls, root: ET.Element) -> DocumentAddRecognizeResult:
         doc = root.find("DOCUMENT")
         wallet = root.find("WALLET")
-
-        def _maybe_float(value: str | None) -> float | None:
-            if not value:
-                return None
-            try:
-                return float(value)
-            except ValueError:
-                return None
-
-        cost = el_text(doc, "COST") if doc is not None else None
-        credits = el_text(wallet, "REMAINING_CREDITS") if wallet is not None else None
         return cls(
             status=(el_text(doc, "STATUS") if doc is not None else None) or "UNKNOWN",
             status_message=el_text(doc, "STATUS_MESSAGE") if doc is not None else None,
             ocr_origin_id=el_int(doc, "OCR_ORIGIN_ID") if doc is not None else None,
-            cost=_maybe_float(cost),
+            cost=el_text(doc, "COST") if doc is not None else None,
             sent_document_count=el_int(doc, "SENT_DOCUMENT_COUNT") if doc is not None else None,
             sent_page_count=el_int(doc, "SENT_PAGE_COUNT") if doc is not None else None,
             split_mode=el_text(doc, "SPLIT_MODE") if doc is not None else None,
             no_rotate=el_bool(doc, "NO_ROTATE") if doc is not None else None,
-            remaining_credits=_maybe_float(credits),
+            remaining_credits=el_text(wallet, "REMAINING_CREDITS") if wallet is not None else None,
         )
 
 
@@ -275,9 +257,9 @@ class DocumentCorrectInput(BaseModel):
 
     document_id: int
     number: str | None = None
-    issue_date: str | None = None
-    sale_date: str | None = None
-    payment_date: str | None = None
+    issue_date: IsoDate | None = None
+    sale_date: IsoDate | None = None
+    payment_date: IsoDate | None = None
     contractor: DocumentCorrectContractorInput | None = None
     bank_account: str | None = None
     self_learning: bool | None = None
@@ -335,7 +317,7 @@ class DocumentImportCurrencyInput(BaseModel):
     """``<CURRENCY>`` block on a ``DocumentImportInput``."""
 
     iso4217: str
-    date: str  # ISO YYYY-MM-DD
+    date: IsoDate
     rate: str | None = None
 
 
@@ -407,7 +389,7 @@ class DocumentImportLineItemInput(BaseModel):
 class DocumentImportPaymentInput(BaseModel):
     """One ``<PAYMENT>`` inside PAYMENTS — partial-payment record."""
 
-    date: str  # ISO YYYY-MM-DD
+    date: IsoDate
     amount: str
 
 
@@ -440,18 +422,18 @@ class DocumentImportInput(BaseModel):
     document_type: DocumentImportTypeInput
     attachment: Attachment
     archival_number: str | None = None
-    receive_date: str | None = None
+    receive_date: IsoDate | None = None
     category: str | None = None
     description: str | None = None
     registry: str | None = None
     number: str | None = None
-    issue_date: str | None = None
-    sale_date: str | None = None
-    payment_date: str | None = None
+    issue_date: IsoDate | None = None
+    sale_date: IsoDate | None = None
+    payment_date: IsoDate | None = None
     payment_type: str | None = None
     is_corrective: bool | None = None
     corr_inv_num: str | None = None
-    corr_inv_date: str | None = None
+    corr_inv_date: IsoDate | None = None
     is_cash_basis: bool | None = None
     is_mpp: bool | None = None
     contractor_id: int | None = None
@@ -479,9 +461,9 @@ class DocumentUpdateInput(BaseModel):
 
     document_id: int
     number: str | None = None
-    issue_date: str | None = None
-    sale_date: str | None = None
-    payment_date: str | None = None
+    issue_date: IsoDate | None = None
+    sale_date: IsoDate | None = None
+    payment_date: IsoDate | None = None
     contractor_program_id: str | None = None
     bank_account: str | None = None
     self_learning: bool | None = None
@@ -502,7 +484,7 @@ class DocumentSyncInput(BaseModel):
     saldeo_guid: str | None = None
     contractor_program_id: str | None = None
     document_number: str | None = None
-    issue_date: str | None = None
+    issue_date: IsoDate | None = None
     guid: str | None = None
     description: str | None = None
     numbering_type: str | None = None
@@ -526,12 +508,6 @@ class RecognizeOptionInput(BaseModel):
     """One document for ``document.recognize`` (SS06)."""
 
     document_id: int
-    split_mode: Literal[
-        "NO_SPLIT",
-        "SPLIT_ONE_SIDED",
-        "SPLIT_TWO_SIDED",
-        "AUTO_ONE_SIDED",
-        "AUTO_TWO_SIDED",
-    ] | None = None
+    split_mode: SplitMode | None = None
     no_rotate: bool | None = None
     overwrite_data: bool | None = None

@@ -42,6 +42,27 @@ def el_int(parent: ET.Element, tag: str) -> int | None:
         return None
 
 
+def parse_int_list(parent: ET.Element, container_tag: str, item_tag: str) -> list[int]:
+    """Return ``[int(<item>)]`` for each ``<container>/<item>`` whose text parses.
+
+    Used by the ``*.getidlist`` response parsers (DocumentIdGroups,
+    InvoiceIdGroups). Non-numeric entries are silently skipped — the spec
+    promises integers, but defensive parsing keeps a single bad row from
+    breaking the whole batch.
+    """
+    container_el = parent.find(container_tag)
+    if container_el is None:
+        return []
+    out: list[int] = []
+    for el in container_el.findall(item_tag):
+        if el.text:
+            try:
+                out.append(int(el.text.strip()))
+            except ValueError:
+                continue
+    return out
+
+
 _TRUE_TOKENS = frozenset({"true", "1", "yes", "y", "t"})
 
 
@@ -56,7 +77,7 @@ def el_bool(parent: ET.Element, tag: str, default: bool = False) -> bool:
 # ---- Write helper ----------------------------------------------------------------
 
 
-def set_text(parent: ET.Element, tag: str, value: object | None) -> None:
+def set_text(parent: ET.Element, tag: str, value: int | str | bool | None) -> None:
     """Append <tag>value</tag> if value is not None.
 
     Booleans are serialized as ``true``/``false`` (Saldeo's convention);

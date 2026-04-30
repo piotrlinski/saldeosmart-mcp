@@ -26,7 +26,6 @@ from pydantic import ValidationError
 from ..config import SaldeoConfig
 from ..errors import (
     ErrorResponse,
-    ItemErrorPayload,
     MergeResult,
     SaldeoError,
     iter_item_errors,
@@ -118,7 +117,12 @@ def saldeo_call(fn: Callable[_P, _T]) -> Callable[_P, _T | ErrorResponse]:
         try:
             return fn(*args, **kwargs)
         except SaldeoError as e:
-            return error_response(e)
+            return ErrorResponse(
+                error=e.code,
+                message=e.message,
+                http_status=e.http_status,
+                details=list(e.details),
+            )
         except FileNotFoundError as e:
             return ErrorResponse(error="ATTACHMENT_NOT_FOUND", message=str(e))
         except PermissionError as e:
@@ -143,16 +147,6 @@ def parse_collection(
     return [parser(el) for el in container.findall(item_tag)]
 
 
-def error_response(e: SaldeoError) -> ErrorResponse:
-    """Map a SaldeoError exception into the public ErrorResponse model."""
-    return ErrorResponse(
-        error=e.code,
-        message=e.message,
-        http_status=e.http_status,
-        details=[ItemErrorPayload.from_dataclass(d) for d in e.details],
-    )
-
-
 def summarize_merge(root: ET.Element, *, total: int) -> MergeResult:
     """Walk a merge response and produce a MergeResult summary.
 
@@ -162,10 +156,9 @@ def summarize_merge(root: ET.Element, *, total: int) -> MergeResult:
     metainf = root.find("METAINF")
     operation = el_text(metainf, "OPERATION") if metainf is not None else None
     item_errors = iter_item_errors(root)
-    payloads = [ItemErrorPayload.from_dataclass(e) for e in item_errors]
     return MergeResult(
         operation=operation,
         total=total,
-        successful=max(total - len(payloads), 0),
-        errors=payloads,
+        successful=max(total - len(item_errors), 0),
+        errors=item_errors,
     )

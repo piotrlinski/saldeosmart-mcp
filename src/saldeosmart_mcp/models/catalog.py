@@ -8,10 +8,11 @@ write endpoints.
 
 from __future__ import annotations
 
-from datetime import date as _date
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
+
+from .common import IsoDate
 
 
 class CategoryInput(BaseModel):
@@ -88,17 +89,6 @@ class FeeInput(BaseModel):
 
     type: str
     value: str
-    maturity: str  # ISO date YYYY-MM-DD
+    maturity: IsoDate
     program_id: str | None = None
     description: str | None = None
-
-    @field_validator("maturity")
-    @classmethod
-    def _validate_iso_date(cls, v: str) -> str:
-        try:
-            _date.fromisoformat(v)
-        except ValueError as e:
-            raise ValueError(
-                f"maturity must be ISO date YYYY-MM-DD, got {v!r}"
-            ) from e
-        return v

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..http.attachments import Attachment
 from ..http.xml import el_bool, el_int, el_text
+from .common import IsoDate
 
 ContractType = Literal[
     "KONTRAKT_MENADZERSKI",
@@ -109,7 +110,7 @@ class EmployeeContractInput(BaseModel):
 
     type: ContractType
     position: str | None = None
-    end_date: str | None = None  # ISO YYYY-MM-DD
+    end_date: IsoDate | None = None
 
 
 class EmployeeAddInput(BaseModel):
@@ -129,7 +130,7 @@ class EmployeeAddInput(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     parents_names: str | None = None
-    birth_date: str | None = None  # ISO YYYY-MM-DD
+    birth_date: IsoDate | None = None
     pesel: str | None = None
     nip: str | None = None
     id_card_number: str | None = None
@@ -137,9 +138,9 @@ class EmployeeAddInput(BaseModel):
     email: str | None = None
     telephone_number: str | None = None
     address: str | None = None
-    work_begin_date: str | None = None
-    medical_test_date: str | None = None
-    bhp_expiry_date: str | None = None
+    work_begin_date: IsoDate | None = None
+    medical_test_date: IsoDate | None = None
+    bhp_expiry_date: IsoDate | None = None
     department: str | None = None
     comments: str | None = None
     inactive: bool | None = None
@@ -161,6 +162,6 @@ class PersonnelDocumentAddInput(BaseModel):
     number: int | None = None
     document_name: str | None = None
     description: str | None = None
-    date_of_duty: str | None = None  # ISO YYYY-MM-DD
+    date_of_duty: IsoDate | None = None
     mark_when_date_of_duty_expired: bool | None = None
-    notification_date: str | None = None  # ISO YYYY-MM-DD
+    notification_date: IsoDate | None = None

@@ -2,14 +2,14 @@
 
 Organized by Saldeo resource family. Each submodule owns the read response
 models, the input models, and any helpers exclusive to that family.
-The cross-cutting error models (``ItemErrorPayload`` / ``ErrorResponse`` /
+The cross-cutting error models (``ItemError`` / ``ErrorResponse`` /
 ``MergeResult``) live in ``saldeosmart_mcp.errors`` and are re-exported here
 so the ``saldeosmart_mcp.models`` namespace is the single public face.
 """
 
 from __future__ import annotations
 
-from ..errors import ErrorResponse, ItemError, ItemErrorPayload, MergeResult
+from ..errors import ErrorResponse, ItemError, MergeResult
 from ..http.attachments import Attachment
 from .accounting_close import (
     AssuranceCompanyDetailsInput,
@@ -186,7 +186,6 @@ __all__ = [
     "InvoiceIdGroups",
     "InvoiceList",
     "ItemError",
-    "ItemErrorPayload",
     "MergeResult",
     "PaymentMethodInput",
     "PeriodType",

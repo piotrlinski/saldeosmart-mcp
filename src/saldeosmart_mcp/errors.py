@@ -5,13 +5,9 @@ Two flavours of error live here:
 - ``SaldeoError`` (Python exception) — what the HTTP layer raises when
   Saldeo returned a structured ERROR envelope, an HTTP failure with no
   body, or a parse error.
-- ``ErrorResponse`` / ``ItemErrorPayload`` / ``MergeResult`` (Pydantic
+- ``ErrorResponse`` / ``ItemError`` / ``MergeResult`` (Pydantic
   models) — what gets serialized over MCP back to the calling client, so
   the LLM on the other side receives something with a stable JSON Schema.
-
-``ItemError`` (dataclass) is the in-process representation that bridges
-between the two: the per-item walker produces them, then they're converted
-to ``ItemErrorPayload`` at the MCP boundary.
 
 ``iter_item_errors`` is the per-item walker — Saldeo answers ``STATUS=OK``
 at the envelope level even when individual items fail, so callers that
@@ -20,14 +16,12 @@ mutate state need to inspect each item.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from xml.etree import ElementTree as ET
 
 from pydantic import BaseModel, Field
 
 
-@dataclass
-class ItemError:
+class ItemError(BaseModel):
     """A per-item validation/operation error nested inside a successful RESPONSE.
 
     SaldeoSMART batch endpoints (e.g. document/update, document/import,
@@ -75,26 +69,13 @@ class SaldeoError(Exception):
         super().__init__(f"[{code}] {message}")
 
 
-class ItemErrorPayload(BaseModel):
-    """Per-item error nested inside a structured SaldeoError response."""
-
-    status: str
-    path: str
-    message: str
-    item_id: str | None = None
-
-    @classmethod
-    def from_dataclass(cls, e: ItemError) -> ItemErrorPayload:
-        return cls(status=e.status, path=e.path, message=e.message, item_id=e.item_id)
-
-
 class ErrorResponse(BaseModel):
     """Uniform error shape returned to MCP clients on SaldeoSMART failures."""
 
     error: str
     message: str
     http_status: int | None = None
-    details: list[ItemErrorPayload] = Field(default_factory=list)
+    details: list[ItemError] = Field(default_factory=list)
 
 
 class MergeResult(BaseModel):
@@ -109,7 +90,7 @@ class MergeResult(BaseModel):
     operation: str | None = None
     total: int
     successful: int
-    errors: list[ItemErrorPayload] = Field(default_factory=list)
+    errors: list[ItemError] = Field(default_factory=list)
 
 
 # Per-item status fields used across batch endpoints. Field name varies:
@@ -121,6 +102,7 @@ class MergeResult(BaseModel):
 #   company/synchronize  → STATUS,        values MERGED|NOT_VALID|CONFLICT
 #   *.merge / *.renew    → STATUS,        values MERGED|CREATED|RENEWED|...
 # Anything not in the "happy" set is treated as a failure.
+# Non-exhaustive: extend when a new endpoint introduces a happy-path status value.
 _ITEM_STATUS_TAGS = ("UPDATE_STATUS", "STATUS")
 _ITEM_OK_VALUES = frozenset(
     {"UPDATED", "VALID", "CREATED", "OK", "MERGED", "CORRECTED", "RENEWED", "ADDED"}

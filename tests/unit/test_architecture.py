@@ -183,3 +183,98 @@ def test_layers_match_directory_structure() -> None:
               and p.name != "__pycache__"}
     missing = expected - actual
     assert not missing, f"expected layout entries not found: {missing}"
+
+
+# ---- Tool-decorator and stdio-hygiene rules -------------------------------------
+
+
+def _decorator_matches(dec: ast.expr, name: str) -> bool:
+    """True if `dec` is `name`, `<anything>.name`, or a Call wrapping either."""
+    target = dec.func if isinstance(dec, ast.Call) else dec
+    if isinstance(target, ast.Name):
+        return target.id == name
+    if isinstance(target, ast.Attribute):
+        return target.attr == name
+    return False
+
+
+def _iter_tool_files() -> list[Path]:
+    """Tool modules — the only place ``@mcp.tool`` should appear."""
+    tools_dir = PACKAGE_ROOT / "tools"
+    return sorted(p for p in tools_dir.glob("*.py") if not p.name.startswith("_"))
+
+
+@pytest.mark.parametrize("py_file", _iter_tool_files(), ids=lambda p: p.name)
+def test_every_mcp_tool_is_wrapped_by_saldeo_call(py_file: Path) -> None:
+    """Each ``@mcp.tool`` function must also carry ``@saldeo_call``.
+
+    The pair guarantees that any SaldeoError raised inside a tool turns into
+    a structured ErrorResponse rather than a 500-style traceback to the MCP
+    client. Forgetting the wrapper silently regresses error UX.
+    """
+    tree = ast.parse(py_file.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if not any(_decorator_matches(d, "tool") for d in node.decorator_list):
+            continue
+        # `mcp.tool` may be the only "tool" attribute we use, but be precise:
+        # only flag when the decorator chain explicitly invokes `mcp.tool`.
+        is_mcp_tool = any(
+            isinstance(d, ast.Attribute) and d.attr == "tool"
+            and isinstance(d.value, ast.Name) and d.value.id == "mcp"
+            for d in node.decorator_list
+        ) or any(
+            isinstance(d, ast.Call)
+            and isinstance(d.func, ast.Attribute)
+            and d.func.attr == "tool"
+            and isinstance(d.func.value, ast.Name)
+            and d.func.value.id == "mcp"
+            for d in node.decorator_list
+        )
+        if not is_mcp_tool:
+            continue
+        has_saldeo_call = any(_decorator_matches(d, "saldeo_call") for d in node.decorator_list)
+        assert has_saldeo_call, (
+            f"{py_file.name}::{node.name} is decorated with @mcp.tool but not "
+            f"@saldeo_call — SaldeoError would escape as an unhandled exception."
+        )
+
+
+@pytest.mark.parametrize("py_file", _iter_python_files(), ids=lambda p: p.name)
+def test_no_print_calls_in_package(py_file: Path) -> None:
+    """``print()`` corrupts MCP's stdio transport — log to file instead."""
+    tree = ast.parse(py_file.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "print"
+        ):
+            pytest.fail(
+                f"{py_file.name}:{node.lineno}: print() call found. MCP uses stdio "
+                f"as its transport — use the logging module instead."
+            )
+
+
+@pytest.mark.parametrize("py_file", _iter_python_files(), ids=lambda p: p.name)
+def test_only_server_or_package_init_imports_tools(py_file: Path) -> None:
+    """The ``tools`` package registers MCP handlers as a side effect of import.
+
+    Only ``server.py`` (entrypoint) and the package ``__init__.py`` (public
+    surface) should reach into it. Anything else creates a hidden side-effect
+    dependency on tool registration order.
+    """
+    source_module = _module_path_for(py_file)
+    # The tools package itself, the server entrypoint, and the package root
+    # are the legitimate consumers.
+    if source_module[0] == "tools" or py_file.name in {"server.py", "__init__.py"}:
+        return
+    source = py_file.read_text(encoding="utf-8")
+    for _, target in _parse_relative_imports(source):
+        if target and target[0] == "tools":
+            pytest.fail(
+                f"{py_file.name} imports from `tools` package "
+                f"(target={'.'.join(target)}). Tool modules register MCP handlers on "
+                f"import — only server.py and the package __init__ should pull them in."
+            )
