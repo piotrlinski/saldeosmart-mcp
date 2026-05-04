@@ -1,0 +1,49 @@
+/* SaldeoSMART MCP — Material theme overrides.
+ *
+ * Goals:
+ *   - Subtle accounting-tool palette (deep indigo + teal accent) without
+ *     fighting Material's defaults.
+ *   - Tighter card grid for the landing page.
+ *   - Slightly richer code-block presentation (we ship a lot of XML/JSON).
+ */
+
+:root {
+  --md-primary-fg-color: #1e2a78;
+  --md-primary-fg-color--light: #2c3a99;
+  --md-primary-fg-color--dark: #131b50;
+  --md-accent-fg-color: #00897b;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #0f1322;
+  --md-default-bg-color--light: #161b2e;
+}
+
+/* Landing-page card grid — slightly tighter and warmer borders. */
+.md-typeset .grid.cards > :is(ul, ol) > li,
+.md-typeset .grid.cards > .card {
+  border-radius: 0.6rem;
+  transition: border-color 200ms, transform 200ms;
+}
+
+.md-typeset .grid.cards > :is(ul, ol) > li:hover,
+.md-typeset .grid.cards > .card:hover {
+  border-color: var(--md-accent-fg-color);
+  transform: translateY(-2px);
+}
+
+/* Code blocks: a touch more vertical breathing room. */
+.md-typeset pre > code {
+  padding: 0.85em 1em;
+}
+
+/* Tool-catalog tables (auto-generated reference) — keep wide signatures readable. */
+.md-typeset table:not([class]) td:first-child {
+  white-space: nowrap;
+  font-family: var(--md-code-font-family);
+}
+
+/* Make admonition titles bold; matches the prose density of accounting docs. */
+.md-typeset .admonition > .admonition-title {
+  font-weight: 600;
+}

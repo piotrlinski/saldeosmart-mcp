@@ -1,0 +1,577 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/code-of-conduct/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/code-of-conduct/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/code-of-conduct/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/contributing/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/contributing/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/contributing/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/security/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/security/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/security/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/explanation/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/architecture/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/explanation/architecture/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/concurrency/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/concurrency/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/explanation/concurrency/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/design-decisions/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/design-decisions/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/explanation/design-decisions/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/request-signing/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/request-signing/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/explanation/request-signing/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/security-and-privacy/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/explanation/security-and-privacy/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/explanation/security-and-privacy/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/add-a-tool/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/add-a-tool/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/add-a-tool/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/bump-saldeo-api-version/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/bump-saldeo-api-version/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/bump-saldeo-api-version/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-claude-code/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-claude-code/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/configure-claude-code/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-claude-desktop/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-claude-desktop/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/configure-claude-desktop/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-cursor/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-cursor/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/configure-cursor/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-other-clients/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/configure-other-clients/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/configure-other-clients/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/debug-auth/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/debug-auth/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/debug-auth/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/install/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/install/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/install/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/run-smoke-test/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/how-to/run-smoke-test/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/how-to/run-smoke-test/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/api-versions/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/api-versions/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/api-versions/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/changelog/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/changelog/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/configuration/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/configuration/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/configuration/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/error-codes/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/error-codes/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/error-codes/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/models/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/models/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/models/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/SUMMARY/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/SUMMARY/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/SUMMARY/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/accounting_close/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/accounting_close/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/accounting_close/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/bank/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/bank/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/bank/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/catalog/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/catalog/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/catalog/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/companies/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/companies/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/companies/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/contractors/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/contractors/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/contractors/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/dimensions/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/dimensions/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/dimensions/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/documents/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/documents/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/documents/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/financial_balance/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/financial_balance/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/financial_balance/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/invoices/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/invoices/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/invoices/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/personnel/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/reference/tools/personnel/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/reference/tools/personnel/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/tutorials/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/tutorials/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/tutorials/first-tool-call/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/tutorials/first-tool-call/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/tutorials/first-tool-call/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/tutorials/quickstart/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/tutorials/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1pl/tutorials/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/code-of-conduct/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/code-of-conduct/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1code-of-conduct/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/contributing/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/contributing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1contributing/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/security/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/security/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1security/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1explanation/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/architecture/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/architecture/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1explanation/architecture/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/concurrency/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/concurrency/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1explanation/concurrency/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/design-decisions/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/design-decisions/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1explanation/design-decisions/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/request-signing/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/request-signing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1explanation/request-signing/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/security-and-privacy/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/explanation/security-and-privacy/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1explanation/security-and-privacy/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/add-a-tool/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/add-a-tool/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/add-a-tool/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/bump-saldeo-api-version/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/bump-saldeo-api-version/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/bump-saldeo-api-version/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-claude-code/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-claude-code/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/configure-claude-code/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-claude-desktop/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-claude-desktop/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/configure-claude-desktop/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-cursor/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-cursor/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/configure-cursor/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-other-clients/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/configure-other-clients/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/configure-other-clients/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/debug-auth/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/debug-auth/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/debug-auth/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/install/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/install/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/install/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/run-smoke-test/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/how-to/run-smoke-test/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1how-to/run-smoke-test/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/api-versions/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/api-versions/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/api-versions/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/changelog/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/changelog/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/configuration/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/configuration/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/configuration/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/error-codes/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/error-codes/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/error-codes/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/models/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/models/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/models/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/SUMMARY/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/SUMMARY/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/SUMMARY/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/accounting_close/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/accounting_close/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/accounting_close/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/bank/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/bank/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/bank/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/catalog/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/catalog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/catalog/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/companies/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/companies/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/companies/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/contractors/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/contractors/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/contractors/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/dimensions/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/dimensions/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/dimensions/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/documents/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/documents/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/documents/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/financial_balance/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/financial_balance/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/financial_balance/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/invoices/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/invoices/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/invoices/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/personnel/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/reference/tools/personnel/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1reference/tools/personnel/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/tutorials/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1tutorials/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/tutorials/first-tool-call/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/tutorials/first-tool-call/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1tutorials/first-tool-call/"/>
+    </url>
+    <url>
+        <loc>https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/tutorials/quickstart/</loc>
+        <lastmod>2026-05-04</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="pl" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1/pl/tutorials/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://piotrlinski.github.io/saldeosmart-mcp/0.2.1tutorials/quickstart/"/>
+    </url>
+</urlset>
