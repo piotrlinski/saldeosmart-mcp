@@ -1,0 +1,52 @@
+# Configuration for the lychee link checker (Rust binary).
+#
+# Run via `make docs-link-check` locally or in `.github/workflows/docs.yml`.
+
+# How long to wait for each link.
+timeout = 20
+
+# How many concurrent requests.
+max_concurrency = 8
+
+# Retry transient failures.
+max_retries = 2
+
+# Verbosity.
+verbose = "info"
+
+# Recurse into the built site only — don't walk the source tree.
+include_verbatim = false
+
+# Cache results to speed up local re-runs.
+cache = true
+max_cache_age = "1d"
+
+# URLs / patterns to ignore.
+exclude = [
+  # Localhost references in setup examples.
+  "^http://127\\.0\\.0\\.1.*",
+  "^http://localhost.*",
+
+  # Saldeo's own portal — rate-limits CI runners and its login pages
+  # are intentionally JS-rendered (lychee can't follow).
+  "^https://saldeo\\.brainshare\\.pl.*",
+  "^https://saldeo-test\\.brainshare\\.pl.*",
+  "^https://www\\.saldeosmart\\.pl.*",
+
+  # GitHub repo URLs that don't exist until we publish the package /
+  # the per-release artifacts.
+  "^https://pypi\\.org/project/saldeosmart-mcp.*",
+
+  # gh-pages preview branch used by docs.yml — only meaningful after
+  # the first deploy, but referenced in workflow files.
+  "^https://piotrlinski\\.github\\.io/saldeosmart-mcp.*",
+
+  # MailtoLinks — lychee can't actually verify them.
+  "^mailto:.*",
+]
+
+# Which schemes to check.
+scheme = ["https", "http"]
+
+# Accept these HTTP status codes as success.
+accept = [200, 206, 301, 302, 304, 308, 403, 429]

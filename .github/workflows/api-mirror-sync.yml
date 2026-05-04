@@ -1,0 +1,69 @@
+# Weekly job: refresh the local mirror of SaldeoSMART REST API HTML
+# documentation. The mirror itself stays gitignored (3.5 MB), but the
+# summary at docs/_data/api_mirror_index.json is committed. If a new
+# version of an endpoint shows up upstream, the summary changes and we
+# open a PR labelled `saldeo-api-update` so a human can review whether
+# any endpoint constants need bumping.
+#
+# See docs/how-to/bump-saldeo-api-version.md for the runbook.
+
+name: API mirror sync
+
+on:
+  schedule:
+    # Every Monday 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: api-mirror-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra docs
+
+      - name: Sync mirror and recompute summary
+        run: uv run python scripts/sync_api_mirror.py
+
+      - name: Open a PR if the summary changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/saldeo-api-mirror-sync
+          base: master
+          commit-message: "chore(api-mirror): refresh from saldeo.brainshare.pl"
+          title: "chore: SaldeoSMART API mirror update"
+          body: |
+            Automated weekly sync of `.temp/api-html-mirror/` against
+            https://saldeo.brainshare.pl/static/doc/api/.
+
+            Summary diff is in `docs/_data/api_mirror_index.json`.
+
+            **Action:** review whether any endpoint constants in
+            `src/saldeosmart_mcp/tools/endpoints.py` need bumping.
+            Runbook: [bump a Saldeo API version](https://piotrlinski.github.io/saldeosmart-mcp/how-to/bump-saldeo-api-version/).
+          labels: |
+            saldeo-api-update
+            chore
+          add-paths: |
+            docs/_data/api_mirror_index.json

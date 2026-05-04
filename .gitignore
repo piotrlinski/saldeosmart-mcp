@@ -95,3 +95,5 @@ scratch/
 *.key
 secrets.json
 credentials.json
+docs/reference/tools/
+site/

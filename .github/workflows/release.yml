@@ -1,0 +1,135 @@
+# Cut a release on tag push: PyPI publish + versioned docs deploy + GitHub Release.
+#
+# Requirements before this can run:
+#   1. PyPI trusted publishing configured for this repo
+#      (https://docs.pypi.org/trusted-publishers/).
+#   2. Settings → Pages → Source = `gh-pages` branch (already in place
+#      after `docs-deploy.yml` runs once).
+#   3. The `dev` mike alias deployed at least once so `gh-pages` exists.
+#
+# Tagging convention:
+#   v0.2.0, v0.3.0, … — semver. The leading `v` is stripped before mike
+#   sees it (mike aliases shouldn't carry the prefix).
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write       # create the GitHub Release + push to gh-pages
+  id-token: write       # PyPI trusted publishing
+  pull-requests: read   # Release Drafter reads PR labels
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build wheel + sdist
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Resolve version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify pyproject version matches the tag
+        run: |
+          PYPROJECT_VERSION=$(uv run python -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          if [ "$PYPROJECT_VERSION" != "${{ steps.version.outputs.version }}" ]; then
+            echo "::error::Tag version (${{ steps.version.outputs.version }}) does not match pyproject.toml ($PYPROJECT_VERSION)."
+            exit 1
+          fi
+
+      - name: Build (sdist + wheel)
+        run: uv build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 30
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/saldeosmart-mcp
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish via trusted publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  deploy-docs:
+    name: Deploy versioned docs
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      DISABLE_MKDOCS_2_WARNING: "true"
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure git author for mike
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra docs
+
+      - name: Sanity build
+        run: uv run mkdocs build --strict --site-dir _site_check
+
+      - name: Deploy versioned docs and re-alias `latest`
+        run: |
+          uv run mike deploy --push --update-aliases "$VERSION" latest
+          uv run mike set-default --push latest
+
+  github-release:
+    name: Draft GitHub release notes
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update release notes from PR labels
+        uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+          tag: ${{ github.ref_name }}
+          version: ${{ needs.build.outputs.version }}
+          publish: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

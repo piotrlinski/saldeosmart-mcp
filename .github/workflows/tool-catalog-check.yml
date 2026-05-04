@@ -1,0 +1,54 @@
+# Drift gate: regenerate the tool catalog and the per-tool docstring
+# contract; fail the PR if anything changed without a corresponding
+# commit.
+#
+# Required status check on PRs touching `src/saldeosmart_mcp/tools/**`.
+
+name: Tool catalog drift
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "src/saldeosmart_mcp/tools/**"
+      - "src/saldeosmart_mcp/models/**"
+      - "scripts/gen_tool_catalog.py"
+      - "scripts/gen_api_versions.py"
+      - "scripts/check_docstring_contract.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tool-catalog-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      DISABLE_MKDOCS_2_WARNING: "true"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev --extra docs
+
+      - name: Build the site (tool catalog auto-generated)
+        run: uv run mkdocs build --strict --site-dir site
+
+      - name: Verify tool coverage
+        run: uv run python scripts/check_tool_coverage.py site
+
+      - name: Verify docstring contract
+        run: uv run python scripts/check_docstring_contract.py

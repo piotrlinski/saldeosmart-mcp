@@ -48,6 +48,22 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.26",
+    "griffe-pydantic>=1.1",
+    "mkdocs-gen-files>=0.5",
+    "mkdocs-literate-nav>=0.6",
+    "mkdocs-section-index>=0.3",
+    "mkdocs-include-markdown-plugin>=6.2",
+    "mkdocs-redirects>=1.2",
+    "mkdocs-static-i18n>=1.2",
+    "mkdocs-git-revision-date-localized-plugin>=1.2",
+    "mike>=2.1",
+    "pymdown-extensions>=10.9",
+    "codespell>=2.3",
+]
 
 [project.scripts]
 saldeosmart-mcp = "saldeosmart_mcp.server:main"

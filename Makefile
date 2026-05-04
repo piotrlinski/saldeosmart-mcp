@@ -24,7 +24,9 @@ UV     ?= uv
 ENV_FLAGS = -e SALDEO_USERNAME -e SALDEO_API_TOKEN -e SALDEO_BASE_URL
 
 .DEFAULT_GOAL := help
-.PHONY: help build run inspector test lint format sync clean
+.PHONY: help build run inspector test lint format sync clean \
+        docs-sync docs-serve docs-build docs-lint docs-link-check \
+        docs-coverage docs-all docs-clean
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} \
@@ -58,6 +60,35 @@ format: ## Apply ruff format + ruff --fix locally
 
 clean: ## Remove the Docker image
 	-$(DOCKER) image rm $(IMAGE)
+
+# ---- Documentation ----------------------------------------------------------
+# The docs site is MkDocs Material + mkdocstrings + mike for versioning.
+# `make docs-sync` once, then iterate with `make docs-serve`.
+# CI runs `docs-build` (strict), `docs-coverage`, `docs-lint`, `docs-link-check`.
+
+docs-sync: ## Install docs dependencies (uv sync --extra docs)
+	$(UV) sync --extra docs
+
+docs-serve: ## Live-reload docs locally at http://127.0.0.1:8000
+	$(UV) run mkdocs serve -a 127.0.0.1:8000
+
+docs-build: ## Build the static site (strict: fails on warnings)
+	$(UV) run mkdocs build --strict
+
+docs-clean: ## Remove the built site
+	rm -rf site
+
+docs-coverage: docs-build ## Verify every @mcp.tool has a rendered page
+	$(UV) run python scripts/check_tool_coverage.py site
+
+docs-lint: ## markdownlint + codespell on docs and source prose
+	$(UV) run markdownlint-cli2 'docs/**/*.md' '*.md' || true
+	$(UV) run codespell --config .codespellrc docs/ src/ scripts/
+
+docs-link-check: docs-build ## lychee link-check the built site
+	lychee --config lychee.toml site/ || true
+
+docs-all: docs-build docs-coverage docs-lint docs-link-check ## All docs gates
 
 _check-creds:
 	@if [ -z "$$SALDEO_USERNAME" ] || [ -z "$$SALDEO_API_TOKEN" ]; then \

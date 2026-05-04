@@ -1,0 +1,110 @@
+# Pull-request gate for documentation changes.
+#
+# Runs the same build the deploy job will run, plus link/lint/spell
+# checks and the tool-coverage gate. Per-PR previews are uploaded as a
+# workflow artifact (zipped site/) — adding a public preview URL is
+# tracked separately in the issue tracker (gh-pages-preview branch /
+# Cloudflare Pages).
+
+name: Docs PR
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "scripts/gen_*.py"
+      - "scripts/sync_api_mirror.py"
+      - "scripts/check_*.py"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "CODE_OF_CONDUCT.md"
+      - "README.md"
+      - ".github/workflows/docs.yml"
+      - ".markdownlint.yaml"
+      - ".codespellrc"
+      - "lychee.toml"
+  push:
+    branches: [master]
+    paths-ignore:
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.svg"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, lint, link-check
+    runs-on: ubuntu-latest
+    env:
+      DISABLE_MKDOCS_2_WARNING: "true"
+    steps:
+      - name: Checkout (full history for git-revision plugin)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev --extra docs
+
+      - name: Build site (strict)
+        run: uv run mkdocs build --strict --site-dir site
+
+      - name: Verify tool coverage
+        run: uv run python scripts/check_tool_coverage.py site
+
+      - name: Verify docstring contract on @mcp.tool functions
+        run: uv run python scripts/check_docstring_contract.py
+
+      - name: Markdown lint
+        uses: DavidAnson/markdownlint-cli2-action@v20
+        with:
+          config: .markdownlint.yaml
+          globs: |
+            docs/**/*.md
+            *.md
+
+      - name: Spell check (codespell)
+        run: uv run codespell --config .codespellrc
+
+      - name: Link check (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config lychee.toml --no-progress site/
+          fail: true
+
+      - name: Doctest pure-function modules
+        run: |
+          uv run pytest --doctest-modules \
+            src/saldeosmart_mcp/http/signing.py \
+            src/saldeosmart_mcp/http/xml.py \
+            src/saldeosmart_mcp/models/common.py
+
+      - name: Upload preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview-pr-${{ github.event.pull_request.number }}
+          path: site/
+          retention-days: 14

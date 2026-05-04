@@ -1,0 +1,202 @@
+site_name: SaldeoSMART MCP
+site_description: MCP server for SaldeoSMART — read and update accounting documents over the Model Context Protocol.
+site_url: https://piotrlinski.github.io/saldeosmart-mcp/
+repo_url: https://github.com/piotrlinski/saldeosmart-mcp
+repo_name: piotrlinski/saldeosmart-mcp
+edit_uri: edit/master/docs/
+copyright: MIT — not an official SaldeoSMART/BrainShare product.
+
+theme:
+  name: material
+  language: en
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+  features:
+    # navigation.instant disabled: incompatible with mkdocs-static-i18n's
+    # contextual language-switcher links.
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - content.action.view
+    - search.suggest
+    - search.highlight
+    - search.share
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - section-index
+  - literate-nav:
+      nav_file: SUMMARY.md
+  - gen-files:
+      scripts:
+        - scripts/gen_tool_catalog.py
+        - scripts/gen_error_codes.py
+        - scripts/gen_api_versions.py
+        - scripts/gen_configuration.py
+  - include-markdown
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: false
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            show_bases: false
+            show_if_no_docstring: false
+            docstring_style: google
+            docstring_section_style: table
+            members_order: source
+            filters: ["!^_"]
+            extensions:
+              - griffe_pydantic
+  - redirects:
+      redirect_maps:
+        # Old static-docs URL — preserve so external bookmarks survive.
+        ERROR_CODES.md: reference/error-codes.md
+  # mkdocs-static-i18n is wired up in Phase 12 (Polish translation pass).
+  # Re-enabling earlier breaks gen-files: the i18n plugin's reconfigure step
+  # drops virtual files emitted via mkdocs_gen_files.open as "Unhandled file
+  # case", because they aren't on disk under docs/ at the time i18n scans.
+  # Phase 12 restores i18n and adds .pl.md siblings for human-authored pages.
+  - git-revision-date-localized:
+      enable_creation_date: true
+      enable_git_follow: false
+      type: timeago
+      fallback_to_build_date: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Permalink
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      base_path: [".", "docs/_snippets"]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  version:
+    provider: mike
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/piotrlinski/saldeosmart-mcp
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/saldeosmart-mcp/
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
+
+watch:
+  - src
+  - scripts
+  - README.md
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - CODE_OF_CONDUCT.md
+  - CHANGELOG.md
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - tutorials/index.md
+      - Quickstart: tutorials/quickstart.md
+      - Your first tool call: tutorials/first-tool-call.md
+  - How-to guides:
+      - how-to/index.md
+      - Install: how-to/install.md
+      - Configure Claude Desktop: how-to/configure-claude-desktop.md
+      - Configure Claude Code: how-to/configure-claude-code.md
+      - Configure Cursor: how-to/configure-cursor.md
+      - Configure other clients: how-to/configure-other-clients.md
+      - Add a new tool: how-to/add-a-tool.md
+      - Bump Saldeo API version: how-to/bump-saldeo-api-version.md
+      - Debug authentication: how-to/debug-auth.md
+      - Run the smoke test: how-to/run-smoke-test.md
+  - Reference:
+      - reference/index.md
+      - Tools: reference/tools/
+      - Models: reference/models.md
+      - Configuration: reference/configuration.md
+      - Error codes: reference/error-codes.md
+      - API versions: reference/api-versions.md
+      - Changelog: reference/changelog.md
+  - Explanation:
+      - explanation/index.md
+      - Architecture: explanation/architecture.md
+      - Request signing: explanation/request-signing.md
+      - Concurrency: explanation/concurrency.md
+      - Security & privacy: explanation/security-and-privacy.md
+      - Design decisions: explanation/design-decisions.md
+  - Contributing: contributing.md
+  - Security: security.md
+  - Code of Conduct: code-of-conduct.md

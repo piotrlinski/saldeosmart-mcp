@@ -1,0 +1,87 @@
+# Build and deploy versioned documentation to GitHub Pages.
+#
+# Replaces the prior `pages.yml` (which served `docs/` verbatim). The new
+# pipeline builds with mkdocs (auto-generated tool catalog, API ref, error
+# codes, configuration), then deploys to `gh-pages` via `mike` so each
+# release gets its own URL and `latest` tracks the highest version.
+#
+# One-time setup (do this BEFORE the first run):
+#   1. Settings → Pages → Source = "Deploy from a branch", Branch = `gh-pages` / `(root)`.
+#   2. From a clean clone, on master:
+#        uv sync --extra docs
+#        uv run mike deploy --push --update-aliases dev latest
+#        uv run mike set-default --push latest
+#      That seeds gh-pages and points the site root at `latest`.
+#   3. Subsequent pushes / releases re-run mike automatically below.
+#
+# Why `cancel-in-progress: false`?
+#   mike rewrites the gh-pages branch in-place. Cancelling a half-finished
+#   mike run leaves an inconsistent branch. We queue instead — slower but
+#   safe.
+
+name: Deploy docs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "docs/**"
+      - "src/**"
+      - "scripts/gen_*.py"
+      - "scripts/sync_api_mirror.py"
+      - "mkdocs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/docs-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # mike pushes to gh-pages
+
+concurrency:
+  group: docs-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DISABLE_MKDOCS_2_WARNING: "true"
+    steps:
+      - name: Checkout (full history for git-revision plugin)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure git author for mike
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra docs
+
+      - name: Build docs (sanity check before deploy)
+        run: uv run mkdocs build --strict --site-dir _site_check
+        # mkdocs strict catches docstring errors; we throw _site_check away
+        # because mike does its own build into the gh-pages worktree.
+
+      - name: Verify tool coverage (every @mcp.tool has a rendered page)
+        run: uv run python scripts/check_tool_coverage.py _site_check
+
+      - name: Deploy to gh-pages via mike
+        # Branch builds publish under the `dev` alias; tagged releases run
+        # release.yml, which deploys the version number and re-aliases
+        # `latest`. Order: push the alias, update the symlink in one shot.
+        run: |
+          uv run mike deploy --push --update-aliases dev latest
+          uv run mike set-default --push latest
