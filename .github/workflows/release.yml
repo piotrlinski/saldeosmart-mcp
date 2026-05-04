@@ -111,6 +111,13 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --extra docs
 
+      - name: Generate auto-reference pages
+        run: |
+          uv run python scripts/gen_tool_catalog.py
+          uv run python scripts/gen_error_codes.py
+          uv run python scripts/gen_api_versions.py
+          uv run python scripts/gen_configuration.py
+
       - name: Sanity build
         run: uv run mkdocs build --strict --site-dir _site_check
 

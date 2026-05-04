@@ -33,6 +33,17 @@ def _validate_iso_date(value: str) -> str:
     sending ``"2026-13-99"`` results in an opaque server error instead of a
     clean field-level validation error. ``date.fromisoformat`` enforces both
     structure and calendar correctness in one call.
+
+    >>> _validate_iso_date("2026-05-04")
+    '2026-05-04'
+    >>> _validate_iso_date("2026-13-01")
+    Traceback (most recent call last):
+        ...
+    ValueError: expected YYYY-MM-DD ISO date, got '2026-13-01'
+    >>> _validate_iso_date("not-a-date")
+    Traceback (most recent call last):
+        ...
+    ValueError: expected YYYY-MM-DD ISO date, got 'not-a-date'
     """
     try:
         date.fromisoformat(value)
@@ -65,6 +76,17 @@ def _validate_nip(value: str) -> str:
     digits. Checksum validation is intentionally NOT enforced — Saldeo's
     own validator runs server-side, and over-strict client checks reject
     legitimate edge cases (test environments, historical rows).
+
+    >>> _validate_nip("1234567890")
+    '1234567890'
+    >>> _validate_nip("123-456-78-90")
+    '1234567890'
+    >>> _validate_nip("123 456 78 90")
+    '1234567890'
+    >>> _validate_nip("12345")
+    Traceback (most recent call last):
+        ...
+    ValueError: expected 10-digit NIP, got '12345'
     """
     cleaned = _strip_separators(value)
     if not (len(cleaned) == 10 and cleaned.isdigit()):
@@ -91,6 +113,15 @@ def _validate_vat_number(value: str) -> str:
     NIPs (10 digits, no prefix or ``PL`` prefix), German USt-IdNr
     (``DE`` + 9), French TVA (``FR`` + 11), etc. Anything else is rejected
     so a typo doesn't silently end up as a contractor identifier.
+
+    >>> _validate_vat_number("PL1234567890")
+    'PL1234567890'
+    >>> _validate_vat_number("de 123 456 789")
+    'DE123456789'
+    >>> _validate_vat_number("ABC123")  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    ValueError: expected VAT number in format ...got 'ABC123'
     """
     cleaned = _strip_separators(value).upper()
     if not _VAT_RE.match(cleaned):

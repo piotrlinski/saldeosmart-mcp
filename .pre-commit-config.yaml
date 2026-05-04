@@ -23,3 +23,34 @@ repos:
           - "fastmcp>=2.0"
           - "httpx>=0.27"
         args: ["--config-file=pyproject.toml"]
+
+  # ---- Documentation gates ----------------------------------------------
+  # Markdown lint, spell check, and the LLM-facing tool-docstring
+  # contract. Same checks that gate PRs in `.github/workflows/docs.yml`,
+  # surfaced locally so you don't ship a contract violation.
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        additional_dependencies: ["tomli"]
+        args: ["--config=.codespellrc"]
+
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.18.1
+    hooks:
+      - id: markdownlint-cli2
+        args: ["--config", ".markdownlint.yaml"]
+        # Skip auto-generated reference pages — they're rebuilt each
+        # docs build and aren't kept in git.
+        files: '^(docs/.*|[^/]+)\.md$'
+        exclude: '^docs/(reference/(tools/|error-codes\.md|api-versions\.md|configuration\.md))'
+
+  - repo: local
+    hooks:
+      - id: tool-docstring-contract
+        name: Tool docstring contract
+        entry: uv run python scripts/check_docstring_contract.py
+        language: system
+        files: '^src/saldeosmart_mcp/tools/.*\.py$'
+        pass_filenames: false

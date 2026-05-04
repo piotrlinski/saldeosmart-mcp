@@ -56,14 +56,11 @@ plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
   - section-index
-  - literate-nav:
-      nav_file: SUMMARY.md
-  - gen-files:
-      scripts:
-        - scripts/gen_tool_catalog.py
-        - scripts/gen_error_codes.py
-        - scripts/gen_api_versions.py
-        - scripts/gen_configuration.py
+  # Auto-generated reference pages are produced by `make docs-gen` (or
+  # equivalently `scripts/gen_*.py` invoked sequentially) before
+  # `mkdocs build` runs. We deliberately avoid mkdocs-gen-files because
+  # it conflicts with mkdocs-static-i18n: i18n's reconfigure step drops
+  # virtual files emitted via a build-time hook.
   - include-markdown
   - mkdocstrings:
       default_handler: python
@@ -89,11 +86,32 @@ plugins:
       redirect_maps:
         # Old static-docs URL — preserve so external bookmarks survive.
         ERROR_CODES.md: reference/error-codes.md
-  # mkdocs-static-i18n is wired up in Phase 12 (Polish translation pass).
-  # Re-enabling earlier breaks gen-files: the i18n plugin's reconfigure step
-  # drops virtual files emitted via mkdocs_gen_files.open as "Unhandled file
-  # case", because they aren't on disk under docs/ at the time i18n scans.
-  # Phase 12 restores i18n and adds .pl.md siblings for human-authored pages.
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: pl
+          name: Polski
+          build: true
+          nav_translations:
+            Home: Start
+            Tutorials: Samouczki
+            How-to guides: Przewodniki
+            Reference: Dokumentacja
+            Explanation: Koncepcje
+            Contributing: Współtworzenie
+            Security: Bezpieczeństwo
+            Code of Conduct: Kodeks postępowania
+  # literate-nav must run AFTER i18n so the SUMMARY.md it consumes is
+  # the post-i18n-reconfigure version.
+  - literate-nav:
+      nav_file: SUMMARY.md
   - git-revision-date-localized:
       enable_creation_date: true
       enable_git_follow: false

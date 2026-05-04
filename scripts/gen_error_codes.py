@@ -19,28 +19,16 @@ import re
 import sys
 from pathlib import Path
 
-try:
-    import mkdocs_gen_files  # type: ignore[import-not-found]
-
-    _GEN_FILES = True
-except ImportError:  # pragma: no cover — standalone path
-    mkdocs_gen_files = None  # type: ignore[assignment]
-    _GEN_FILES = False
-
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
+DOCS_ROOT = REPO_ROOT / "docs"
 ERRORS_PY = REPO_ROOT / "src" / "saldeosmart_mcp" / "errors.py"
-MEANINGS_YAML = REPO_ROOT / "docs" / "_data" / "error_meanings.yaml"
+MEANINGS_YAML = DOCS_ROOT / "_data" / "error_meanings.yaml"
 
 
 def _emit(path: str, content: str) -> None:
-    if _GEN_FILES and mkdocs_gen_files is not None:
-        with mkdocs_gen_files.open(path, "w") as fh:
-            fh.write(content)
-    else:
-        out = REPO_ROOT / "docs" / path
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(content, encoding="utf-8")
+    out = DOCS_ROOT / path
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(content, encoding="utf-8")
 
 
 def _parse_synthetic_codes() -> list[tuple[str, str, str]]:
@@ -213,8 +201,5 @@ def main() -> int:
     return 0
 
 
-main()
-
-
 if __name__ == "__main__":
-    raise SystemExit(0)
+    raise SystemExit(main())

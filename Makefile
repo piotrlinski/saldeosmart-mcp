@@ -69,11 +69,17 @@ clean: ## Remove the Docker image
 docs-sync: ## Install docs dependencies (uv sync --extra docs)
 	$(UV) sync --extra docs
 
-docs-serve: ## Live-reload docs locally at http://127.0.0.1:8000
-	$(UV) run mkdocs serve -a 127.0.0.1:8000
+docs-gen: ## Run every generator (tool catalog, error codes, API versions, config)
+	$(UV) run python scripts/gen_tool_catalog.py
+	$(UV) run python scripts/gen_error_codes.py
+	$(UV) run python scripts/gen_api_versions.py
+	$(UV) run python scripts/gen_configuration.py
 
-docs-build: ## Build the static site (strict: fails on warnings)
-	$(UV) run mkdocs build --strict
+docs-serve: docs-gen ## Live-reload docs locally at http://127.0.0.1:8000
+	DISABLE_MKDOCS_2_WARNING=true $(UV) run mkdocs serve -a 127.0.0.1:8000
+
+docs-build: docs-gen ## Build the static site (strict: fails on warnings)
+	DISABLE_MKDOCS_2_WARNING=true $(UV) run mkdocs build --strict
 
 docs-clean: ## Remove the built site
 	rm -rf site

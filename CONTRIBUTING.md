@@ -192,14 +192,14 @@ if your new tool overlaps with an existing one.
 - **Bugs and feature requests:** open an issue using one of the templates in
   [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/).
 - **Security vulnerabilities:** do **not** open a public issue. See
-  [`SECURITY.md`](SECURITY.md) for the private disclosure path.
+  [`SECURITY.md`](https://github.com/piotrlinski/saldeosmart-mcp/blob/master/SECURITY.md) for the private disclosure path.
 
 ## License
 
 By contributing to this project, you agree that your contributions will be
-licensed under the [MIT License](LICENSE) that covers the project.
+licensed under the [MIT License](https://github.com/piotrlinski/saldeosmart-mcp/blob/master/LICENSE) that covers the project.
 
 ## Code of Conduct
 
-This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). By
+This project follows the [Contributor Covenant](https://github.com/piotrlinski/saldeosmart-mcp/blob/master/CODE_OF_CONDUCT.md). By
 participating, you are expected to uphold it.

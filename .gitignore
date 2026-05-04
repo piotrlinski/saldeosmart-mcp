@@ -95,5 +95,10 @@ scratch/
 *.key
 secrets.json
 credentials.json
+# Auto-generated reference pages — produced by `make docs-gen`.
 docs/reference/tools/
+docs/reference/error-codes.md
+docs/reference/api-versions.md
+docs/reference/configuration.md
 site/
+_site_check/

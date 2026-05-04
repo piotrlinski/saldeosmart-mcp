@@ -113,6 +113,15 @@ def redact_url(url: str) -> str:
     `req_sig` is just an MD5 hash, but it adds noise that breaks log
     grepping and makes log files awkward to share. `api_token` should
     never appear in a URL, but redact defensively.
+
+    >>> redact_url("https://saldeo.brainshare.pl/api/xml/2.12/company/list?username=alice&req_id=42&req_sig=deadbeef")
+    'https://saldeo.brainshare.pl/api/xml/2.12/company/list?username=alice&req_id=42&req_sig=***'
+    >>> # Token (should never be a query param, but we redact defensively):
+    >>> redact_url("https://example.com/x?api_token=abc&keep=this")
+    'https://example.com/x?api_token=***&keep=this'
+    >>> # No query string is a no-op:
+    >>> redact_url("https://example.com/x")
+    'https://example.com/x'
     """
     parts = urlsplit(url)
     if not parts.query:

@@ -56,16 +56,31 @@ class RequestSigner:
 
     @staticmethod
     def sign(params: dict[str, str], api_token: str) -> str:
-        """Algorithm from the spec's "Authentication" section:
+        """Algorithm from the spec's "Authentication" section.
 
-        1. Sort params alphabetically by key (no empty, no duplicates)
-        2. Concatenate as key=value (no separator between pairs - per spec example)
-        3. URL-encode the result
-        4. Append api_token
-        5. MD5, hex (case-insensitive)
+        1. Sort params alphabetically by key (no empty, no duplicates).
+        2. Concatenate as key=value (no separator between pairs — per spec example).
+        3. URL-encode the result.
+        4. Append api_token.
+        5. MD5, hex (case-insensitive).
 
-        Spec example shows: "req_id=<req-id>username=<username>" — pairs are joined
-        with NO separator. We mirror that exactly.
+        Spec example shows: ``req_id=<req-id>username=<username>`` — pairs are
+        joined with NO separator. We mirror that exactly.
+
+        Pure function: stable output for stable input. Doctest pins the
+        contract so a refactor that re-orders or adds separators fails
+        immediately.
+
+        >>> RequestSigner.sign({"username": "alice", "req_id": "abc"}, "tok")
+        '6b251312c323aee01827df308beb7083'
+        >>> # Sort order matters — different key order, same signature:
+        >>> RequestSigner.sign({"req_id": "abc", "username": "alice"}, "tok")
+        '6b251312c323aee01827df308beb7083'
+        >>> # Empty values are rejected before hashing:
+        >>> RequestSigner.sign({"username": ""}, "tok")
+        Traceback (most recent call last):
+            ...
+        ValueError: Signature param 'username' must not be empty or null
         """
         for k, v in params.items():
             if not k:

@@ -6,16 +6,12 @@ and emits one markdown page per resource family containing
 docstring sections, Pydantic field tables) is delegated to the
 ``python`` handler at site-build time.
 
-Two execution modes:
+Run as a pre-build step::
 
-* **mkdocs-gen-files plugin** (the default) — runs at every ``mkdocs
-  build``; output lives in the build's virtual filesystem so the user
-  doesn't see generated files in their working tree.
-* **standalone** (``python scripts/gen_tool_catalog.py``) — used by the
-  ``tool-catalog-check.yml`` CI gate; writes to the actual
-  ``docs/reference/tools/`` directory and exits non-zero on any
-  unexpected condition (missing docstring, decorator order changed,
-  …).
+    uv run python scripts/gen_tool_catalog.py    # writes docs/reference/tools/
+
+The output is gitignored so committers never see it; ``make docs-build``
+chains the generators before invoking ``mkdocs build``.
 
 Why introspect the module rather than ``mcp.list_tools()``? FastMCP's
 runtime tool list requires the client to be initialised, which needs
@@ -33,15 +29,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-# When run under mkdocs-gen-files, the plugin injects this; when run
-# standalone, we fall back to writing real files.
-try:
-    import mkdocs_gen_files  # type: ignore[import-not-found]
-
-    _GEN_FILES = True
-except ImportError:  # pragma: no cover — standalone path
-    mkdocs_gen_files = None  # type: ignore[assignment]
-    _GEN_FILES = False
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DOCS_ROOT = REPO_ROOT / "docs"
 
 
 # Domain → (display name, tools module attribute)
@@ -118,13 +107,12 @@ def _iter_tools(domain: str) -> Iterator[ToolEntry]:
 
 
 def _emit(path: str, content: str) -> None:
-    if _GEN_FILES and mkdocs_gen_files is not None:
-        with mkdocs_gen_files.open(path, "w") as fh:
-            fh.write(content)
-    else:
-        out = Path("docs") / path
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(content, encoding="utf-8")
+    """Write content to docs/<path>. Generators are invoked as a pre-build
+    step (`make docs-gen`); the output dir is gitignored so committers
+    never see the generated files."""
+    out = DOCS_ROOT / path
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(content, encoding="utf-8")
 
 
 def _index_page(rows: list[tuple[str, str, int, int]]) -> str:
@@ -212,9 +200,8 @@ def _summary_md(rows: list[tuple[str, str, int, int]]) -> str:
 
 def main() -> int:
     """Generate the tool-catalog tree. Returns 0 on success."""
-    # Ensure src/ is importable when running standalone.
-    repo_root = Path(__file__).resolve().parent.parent
-    src_path = str(repo_root / "src")
+    # Ensure src/ is importable.
+    src_path = str(REPO_ROOT / "src")
     if src_path not in sys.path:
         sys.path.insert(0, src_path)
 
@@ -233,11 +220,5 @@ def main() -> int:
     return 0
 
 
-# Run unconditionally — mkdocs-gen-files imports this module and expects
-# the side-effect of file emission. When standalone, ``main()`` returns 0
-# on success and we raise on errors so the script's exit code is honored.
-main()
-
-
 if __name__ == "__main__":
-    raise SystemExit(0)
+    raise SystemExit(main())
