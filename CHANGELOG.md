@@ -20,6 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refreshed on every docs build. The current snapshot reports
   74 permissive deps, 1 MPL-2.0 (`certifi`), 0 GPL/AGPL/LGPL — fully
   MIT-compatible for redistribution.
+- `THIRD_PARTY_NOTICES.md` at the repo root, generated from the same
+  data, **bundled inside the wheel** at
+  `saldeosmart_mcp/THIRD_PARTY_NOTICES.md`. Enterprise downstream
+  consumers can find it via `pip show -f saldeosmart-mcp` or read it
+  programmatically:
+  ```python
+  from importlib.resources import files
+  notices = files("saldeosmart_mcp").joinpath("THIRD_PARTY_NOTICES.md").read_text()
+  ```
+  `release.yml` regenerates the file via `scripts/gen_licenses.py`
+  immediately before `uv build`, so every published wheel ships with
+  the latest license inventory. Wired via
+  `[tool.hatch.build.targets.wheel.force-include]` in `pyproject.toml`.
 
 ## [0.2.1] - 2026-05-04
 

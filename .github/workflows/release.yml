@@ -55,6 +55,9 @@ jobs:
             exit 1
           fi
 
+      - name: Refresh THIRD_PARTY_NOTICES.md (bundled in wheel)
+        run: uv run python scripts/gen_licenses.py
+
       - name: Build (sdist + wheel)
         run: uv build
 

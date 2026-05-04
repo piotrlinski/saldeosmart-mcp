@@ -32,6 +32,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_ROOT = REPO_ROOT / "docs"
+NOTICES_PATH = REPO_ROOT / "THIRD_PARTY_NOTICES.md"
 
 # Platform-conditional or version-conditional deps that aren't installed in
 # the canonical CI venv (Linux Python 3.12) but appear in `uv export`. These
@@ -276,13 +277,26 @@ def _render(packages: list[str]) -> str:
 
 
 def main() -> int:
-    """Generate the licenses reference page."""
+    """Generate the licenses reference page + THIRD_PARTY_NOTICES.md.
+
+    Two outputs from the same render so they can never disagree:
+
+    * ``docs/reference/licenses.md`` — for the published docs site
+      (gitignored; auto-generated on each docs build).
+    * ``THIRD_PARTY_NOTICES.md`` at the repo root — committed and
+      bundled into the PyPI wheel via
+      ``[tool.hatch.build.targets.wheel].include`` in
+      ``pyproject.toml``. Enterprise downstream consumers expect to
+      find this file inside the wheel without going to the docs site.
+    """
     packages = _runtime_packages()
     if not packages:
         # Fail loudly — silent empty output would mask a broken environment.
-        print("::error::Could not enumerate runtime packages (uv tree empty).")
+        print("::error::Could not enumerate runtime packages (uv export empty).")
         return 1
-    _emit("reference/licenses.md", _render(packages))
+    rendered = _render(packages)
+    _emit("reference/licenses.md", rendered)
+    NOTICES_PATH.write_text(rendered, encoding="utf-8")
     return 0
 
 
