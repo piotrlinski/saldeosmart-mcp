@@ -189,10 +189,16 @@ def get_documents_by_id(
 
     Args:
         company_program_id: External program ID of the company.
-        contracts, invoices_cost, invoices_internal, invoices_material,
-        invoices_sale, orders, writings, other_documents:
-            Optional lists of document IDs from ``get_document_id_list``.
-            Each list defaults to None (omitted from the request).
+        contracts: Optional list of contract document IDs from ``get_document_id_list``.
+        invoices_cost: Optional list of cost-invoice document IDs.
+        invoices_internal: Optional list of internal-invoice document IDs.
+        invoices_material: Optional list of material-invoice document IDs.
+        invoices_sale: Optional list of sale-invoice document IDs.
+        orders: Optional list of order document IDs.
+        writings: Optional list of writing document IDs.
+        other_documents: Optional list of other-kind document IDs.
+            Each bucket defaults to None (omitted from the request); pass
+            only the buckets you care about.
 
     Returns:
         DocumentList — flat list of full document records (the per-bucket

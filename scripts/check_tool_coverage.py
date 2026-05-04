@@ -97,8 +97,7 @@ def main(argv: list[str]) -> int:
             continue
         page_text = _site_text(site_dir, domain)
         if page_text is None:
-            for tool in tools:
-                missing.append((domain, tool))
+            missing.extend((domain, tool) for tool in tools)
             continue
         for tool in tools:
             # mkdocstrings renders the qualified path as an anchor; check

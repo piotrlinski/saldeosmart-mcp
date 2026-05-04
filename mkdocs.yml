@@ -117,6 +117,12 @@ plugins:
       enable_git_follow: false
       type: timeago
       fallback_to_build_date: true
+      # Auto-generated reference pages (docs/reference/tools/, error-codes,
+      # api-versions, configuration) are produced at build time and are
+      # gitignored, so they have no git history. fallback_to_build_date
+      # supplies a sensible timestamp; strict: false downgrades the
+      # "no git logs" log to INFO so --strict builds don't trip on it.
+      strict: false
 
 markdown_extensions:
   - abbr

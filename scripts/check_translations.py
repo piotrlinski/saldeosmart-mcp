@@ -16,7 +16,6 @@ The intent is to make translation drift visible. Run via the
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent

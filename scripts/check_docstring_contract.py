@@ -93,10 +93,7 @@ def _violations(module_name: str, tool_name: str, fn: object) -> list[str]:
 
 def _has_section(doc: str, name: str) -> bool:
     needle = f"{name}:"
-    for line in doc.splitlines():
-        if line.strip() == needle:
-            return True
-    return False
+    return any(line.strip() == needle for line in doc.splitlines())
 
 
 def main() -> int:

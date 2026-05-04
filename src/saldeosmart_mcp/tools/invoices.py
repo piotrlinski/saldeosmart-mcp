@@ -75,8 +75,10 @@ def get_invoices_by_id(
 
     Args:
         company_program_id: External program ID of the company.
-        invoices, corrective_invoices, pre_invoices, corrective_pre_invoices:
-            Optional lists of invoice IDs from ``get_invoice_id_list``.
+        invoices: Optional list of invoice IDs from ``get_invoice_id_list``.
+        corrective_invoices: Optional list of corrective-invoice IDs.
+        pre_invoices: Optional list of pre-invoice IDs.
+        corrective_pre_invoices: Optional list of corrective-pre-invoice IDs.
             Pass only the buckets you care about; the rest default to None
             (omitted from the request).
 

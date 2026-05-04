@@ -92,8 +92,10 @@ select = ["E", "F", "I", "B", "UP", "SIM", "T20", "A", "RUF", "PERF", "PT"]
 ignore = ["RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-# CLI scripts legitimately write to stdout/stderr.
-"scripts/*" = ["T201", "T203"]
+# CLI scripts legitimately write to stdout/stderr; the doc generators emit
+# long markdown lines (tables, anchors, JSON payloads) where wrapping hurts
+# readability of the generated output.
+"scripts/*" = ["T201", "T203", "E501"]
 
 [tool.mypy]
 python_version = "3.10"

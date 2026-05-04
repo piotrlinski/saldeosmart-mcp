@@ -57,7 +57,8 @@ def list_personnel_documents(
     Args:
         company_program_id: External program ID of the company.
         employee_id: Optional. Restrict to one employee.
-        year, month: Optional folder filter (e.g. year=2024, month=3).
+        year: Optional 4-digit year for a (year, month) folder filter.
+        month: Optional calendar month (1-12) for a (year, month) folder filter.
         only_remaining: If True, list documents not yet sent to the accounting
             program. Mutually exclusive with `employee_id`.
 

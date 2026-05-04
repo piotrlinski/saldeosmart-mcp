@@ -44,8 +44,8 @@ def _render() -> str:
         "",
         "| Env var | CLI flag | Required | Default | Notes |",
         "| --- | --- | --- | --- | --- |",
-        f"| `SALDEO_USERNAME` | `--username` | yes | — | SaldeoSMART login (firm-portal user, not client). |",
-        f"| `SALDEO_API_TOKEN` | `--api-token` | yes | — | 64-char token from **Konfiguracja → Konto → API**. Held as `SecretStr`. |",
+        "| `SALDEO_USERNAME` | `--username` | yes | — | SaldeoSMART login (firm-portal user, not client). |",
+        "| `SALDEO_API_TOKEN` | `--api-token` | yes | — | 64-char token from **Konfiguracja → Konto → API**. Held as `SecretStr`. |",
         f"| `SALDEO_BASE_URL` | `--base-url` | no | `{DEFAULT_BASE_URL}` | Use `https://saldeo-test.brainshare.pl` for the test environment. |",
         f"| `SALDEO_TIMEOUT` | _(env only)_ | no | `{DEFAULT_TIMEOUT}` | httpx request timeout in seconds. |",
         "",
@@ -79,9 +79,7 @@ def _render() -> str:
     for name, info in fields.items():
         annotation = getattr(info.annotation, "__name__", str(info.annotation))
         default = "—" if info.is_required() else repr(info.default)
-        constraints = []
-        for m in info.metadata:
-            constraints.append(repr(m))
+        constraints = [repr(m) for m in info.metadata]
         constraint_str = ", ".join(constraints) or "—"
         lines.append(f"| `{name}` | `{annotation}` | {default} | {constraint_str} |")
     lines.append("")

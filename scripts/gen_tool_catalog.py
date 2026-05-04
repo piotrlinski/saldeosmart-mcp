@@ -162,17 +162,20 @@ def _domain_page(domain: str, label: str, description: str, tools: list[ToolEntr
         description,
         "",
     ]
+    # Note: tool names in the summary tables are NOT linked to anchors.
+    # mkdocstrings emits section IDs based on the qualified path
+    # (`saldeosmart-mcp-tools-documents-list-documents`), not the bare
+    # function name, so a `#list-documents` link would 404 under
+    # `mkdocs build --strict`. Readers scroll to the section below.
     if reads:
         lines += ["## Read tools", "", "| Tool | Summary |", "| --- | --- |"]
         for t in reads:
-            anchor = t.name.replace("_", "-")
-            lines.append(f"| [`{t.name}`](#{anchor}) | {t.summary} |")
+            lines.append(f"| `{t.name}` | {t.summary} |")
         lines.append("")
     if writes:
         lines += ["## Write tools", "", "!!! warning \"Mutates customer data\"", "    Calls under this heading change the SaldeoSMART account. Confirm intent before invoking from an autonomous agent.", "", "| Tool | Summary |", "| --- | --- |"]
         for t in writes:
-            anchor = t.name.replace("_", "-")
-            lines.append(f"| [`{t.name}`](#{anchor}) | {t.summary} |")
+            lines.append(f"| `{t.name}` | {t.summary} |")
         lines.append("")
     lines += ["---", "", "## API reference", ""]
     for t in tools:

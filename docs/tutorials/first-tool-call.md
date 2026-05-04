@@ -40,7 +40,7 @@ is the right tool when you know one of: `document_id`, `number`, `nip`,
 `guid`. If you instead asked "show me everything from last month," Claude
 should pick `list_documents` (with `policy=LAST_10_DAYS`) or the 3.0 ID-list
 flow (`get_document_id_list` → `get_documents_by_id`) — see
-[Choosing the right read tool](../how-to/index.md#choosing-the-right-read-tool).
+the [how-to guides](../how-to/index.md) for tool selection.
 
 ## 3. Inspect the response
 
