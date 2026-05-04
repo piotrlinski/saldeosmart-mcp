@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-04
+
+### Fixed
+
+- `mkdocs build --strict` failed on first 0.2.0 release CI with 93
+  warnings, blocking the docs deploy and the Release-workflow's
+  versioned-docs job. Three classes of cause:
+  1. `scripts/gen_tool_catalog.py` emitted `[name](#anchor)` table
+     cells, but `mkdocstrings` slugs sections by qualified path
+     (`saldeosmart-mcp-tools-documents-list-documents`), so the
+     short anchors 404'd. Catalog tables now show the tool name in
+     code without a clickable anchor — readers scroll / use search.
+  2. `mkdocs-static-i18n`'s Polish-fallback render of
+     `docs/reference/models.md` produced duplicate primary URLs for
+     every Pydantic model (one under `reference/models/`, one under
+     `pl/reference/models/`). Added `docs/reference/models.pl.md`
+     as a stub that doesn't re-emit `:::` directives — the Polish
+     site now points readers back at the English reference page.
+  3. Three tool docstrings
+     (`tools/{documents,invoices,personnel}.py`) had multiple
+     parameter names on a single Args line (`year, month: …`);
+     `griffe` couldn't parse them. Split into one parameter per
+     line.
+- `tutorials/first-tool-call.md` linked
+  `../how-to/index.md#choosing-the-right-read-tool`; that anchor
+  exists in English but not in the Polish-fallback render of
+  `how-to/index.md` (Polish heading slugs differ). Drop the anchor
+  portion of the link.
+- CI's `ruff check .` (whole tree) flagged 32 lint violations in
+  `scripts/` not caught by the local `make lint` (which only ran
+  `ruff check src tests`). Fixed unused import (`F401`),
+  zero-placeholder f-strings (`F541`), and a couple of `PERF401`/
+  `SIM110` patterns. Added `E501` to `scripts/`'s
+  per-file-ignores in `pyproject.toml` because long markdown-
+  emitting f-strings in generators are deliberate.
+- `git-revision-date-localized` plugin warned at WARNING level on
+  auto-generated reference pages that have no git history (they're
+  gitignored by design); set `strict: false` so the warning stays
+  at INFO and doesn't trip `mkdocs build --strict`.
+
+### Note
+
+`v0.2.0` was tagged but never shipped — `release.yml` failed at the
+sanity build before any PyPI publish or `mike deploy` could run.
+The `v0.2.0` GitHub Release page exists but points at a broken
+commit; consider deleting it manually from the GitHub UI. `v0.2.1`
+is the first effective release.
+
 ## [0.2.0] - 2026-05-04
 
 ### Added (documentation)
@@ -194,6 +242,7 @@ Initial public release.
 - Issue and pull-request templates under `.github/`.
 - Dependabot configuration for `pip` and `github-actions`.
 
-[Unreleased]: https://github.com/piotrlinski/saldeosmart-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/piotrlinski/saldeosmart-mcp/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/piotrlinski/saldeosmart-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/piotrlinski/saldeosmart-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/piotrlinski/saldeosmart-mcp/releases/tag/v0.1.0

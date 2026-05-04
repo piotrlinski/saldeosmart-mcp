@@ -1,6 +1,6 @@
 [project]
 name = "saldeosmart-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server for reading and updating documents in SaldeoSMART"
 readme = "README.md"
 license = { text = "MIT" }
