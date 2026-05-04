@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/gen_licenses.py` — auto-generates a third-party-license
+  inventory for every runtime dependency. Walks the runtime closure via
+  `uv export --no-dev --frozen`, looks up each package's license from
+  installed metadata (PEP 639 `License-Expression` → trove classifiers
+  → legacy `License` field → hardcoded fallback for platform-conditional
+  deps), and emits `docs/reference/licenses.md` with a categorised
+  summary (permissive vs weak-copyleft vs strong-copyleft) plus a
+  per-package table. Wired into `make docs-gen` so the page is
+  refreshed on every docs build. The current snapshot reports
+  74 permissive deps, 1 MPL-2.0 (`certifi`), 0 GPL/AGPL/LGPL — fully
+  MIT-compatible for redistribution.
+
 ## [0.2.1] - 2026-05-04
 
 ### Fixed

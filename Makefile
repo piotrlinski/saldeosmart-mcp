@@ -69,11 +69,12 @@ clean: ## Remove the Docker image
 docs-sync: ## Install docs dependencies (uv sync --extra docs)
 	$(UV) sync --extra docs
 
-docs-gen: ## Run every generator (tool catalog, error codes, API versions, config)
+docs-gen: ## Run every generator (tool catalog, error codes, API versions, config, licenses)
 	$(UV) run python scripts/gen_tool_catalog.py
 	$(UV) run python scripts/gen_error_codes.py
 	$(UV) run python scripts/gen_api_versions.py
 	$(UV) run python scripts/gen_configuration.py
+	$(UV) run python scripts/gen_licenses.py
 
 docs-serve: docs-gen ## Live-reload docs locally at http://127.0.0.1:8000
 	DISABLE_MKDOCS_2_WARNING=true $(UV) run mkdocs serve -a 127.0.0.1:8000

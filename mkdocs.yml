@@ -213,6 +213,7 @@ nav:
       - Configuration: reference/configuration.md
       - Error codes: reference/error-codes.md
       - API versions: reference/api-versions.md
+      - Third-party licenses: reference/licenses.md
       - Changelog: reference/changelog.md
   - Explanation:
       - explanation/index.md
