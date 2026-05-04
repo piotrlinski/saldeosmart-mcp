@@ -16,6 +16,14 @@ Importing this package does **not** register MCP tools — that happens lazily
 the first time ``saldeosmart_mcp.tools`` is imported (via ``server.main()``).
 """
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
+
+try:
+    __version__ = _pkg_version("saldeosmart-mcp")
+except PackageNotFoundError:  # pragma: no cover — running from a checkout without install metadata
+    __version__ = "0.0.0+local"
+
 from .config import SaldeoConfig
 from .errors import ErrorResponse, ItemError, MergeResult, SaldeoError
 from .http import SaldeoClient
@@ -99,5 +107,5 @@ __all__ = [
     "SaldeoClient",
     "SaldeoConfig",
     "SaldeoError",
+    "__version__",
 ]
-__version__ = "0.1.0"

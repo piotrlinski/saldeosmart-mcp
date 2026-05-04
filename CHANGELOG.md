@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-04
+
+### Added (documentation)
+
+- MkDocs Material documentation site at
+  `https://piotrlinski.github.io/saldeosmart-mcp/`. Replaces the
+  hand-written `docs/index.html` static page. Diátaxis information
+  architecture: tutorials, how-to guides, auto-generated reference,
+  conceptual explanation.
+- Auto-generated reference pages, regenerated on every docs build:
+  tool catalog (one page per Saldeo resource family with `@mcp.tool`
+  signatures and Pydantic model fields rendered via mkdocstrings),
+  error codes, API-version matrix, configuration (env vars + CLI flags).
+- Polish (`pl`) translations for landing, tutorials index +
+  quickstart, how-to index, explanation index, and reference index.
+  Reference pages stay English by design (auto-generated from English
+  docstrings).
+- `README.pl.md` — Polish parallel of the slimmed README.
+- Doctest examples on `http/signing.py` (`RequestSigner.sign`),
+  `http/xml.py` (`redact_url`), and `models/common.py` validators
+  (`_validate_iso_date`, `_validate_nip`, `_validate_vat_number`).
+  Runs via `pytest --doctest-modules` in `docs.yml`.
+
+### Added (CI / automation)
+
+- `.github/workflows/docs.yml` — PR gate: strict mkdocs build, tool
+  coverage gate, docstring-contract gate, lychee link check,
+  markdownlint, codespell, doctest, per-PR preview artifact.
+- `.github/workflows/docs-deploy.yml` — versioned deploy via mike;
+  replaces the prior `pages.yml`.
+- `.github/workflows/release.yml` — on tag `v*`: PyPI trusted
+  publishing, `mike deploy <version> latest`, GitHub Release via
+  Release Drafter.
+- `.github/workflows/api-mirror-sync.yml` — weekly cron that refreshes
+  `.temp/api-html-mirror/` and opens a PR if Saldeo published a new
+  API version.
+- `.github/workflows/tool-catalog-check.yml` — drift gate on PRs
+  touching `tools/`: the rendered catalog must contain every
+  `@mcp.tool` function.
+- `scripts/gen_tool_catalog.py`, `gen_error_codes.py`,
+  `gen_api_versions.py`, `gen_configuration.py` — pre-build
+  generators that write into `docs/reference/` (gitignored).
+- `scripts/check_tool_coverage.py`, `check_docstring_contract.py`,
+  `check_translations.py`, `sync_api_mirror.py` — CI gates.
+- `Makefile` targets: `docs-sync`, `docs-gen`, `docs-serve`,
+  `docs-build`, `docs-lint`, `docs-link-check`, `docs-coverage`,
+  `docs-all`.
+- Pre-commit hooks: codespell, markdownlint-cli2, and the
+  tool-docstring-contract local hook.
+- `.markdownlint.yaml`, `.codespellrc`, `lychee.toml`,
+  `.github/release-drafter.yml`.
+- `__version__` exposed at the package root, sourced via
+  `importlib.metadata.version("saldeosmart-mcp")`.
+
+### Changed
+
+- `README.md` slimmed from 459 → ~80 lines: hero badges, 30-second
+  quickstart, links to the docs site for everything else. Tool table
+  is now part of the auto-generated catalog at the docs site.
+- `CONTRIBUTING.md` — internal cross-links rewritten to absolute
+  GitHub URLs so the file remains correct when included into the docs
+  site via `mkdocs-include-markdown-plugin`.
+- `pyproject.toml` — `[project.optional-dependencies]` adds a `docs`
+  group (mkdocs, mkdocs-material, mkdocstrings[python],
+  griffe-pydantic, mkdocs-{static-i18n,redirects,
+  git-revision-date-localized,literate-nav,section-index,
+  include-markdown}, mike, pymdown-extensions, codespell).
+
+### Removed
+
+- `docs/index.html`, `docs/style.css`, `docs/.nojekyll`,
+  `docs/ERROR_CODES.md` — superseded by the mkdocs build output.
+- `.github/workflows/pages.yml` — superseded by `docs-deploy.yml`.
+
+### Pre-existing in `[Unreleased]` since 0.1.0 (carried into 0.2.0)
+
 ### Added
 
 - `tools/endpoints.py` — central registry of every `/api/xml/...` path. The
@@ -118,5 +194,6 @@ Initial public release.
 - Issue and pull-request templates under `.github/`.
 - Dependabot configuration for `pip` and `github-actions`.
 
-[Unreleased]: https://github.com/piotrlinski/saldeosmart-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/piotrlinski/saldeosmart-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/piotrlinski/saldeosmart-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/piotrlinski/saldeosmart-mcp/releases/tag/v0.1.0
